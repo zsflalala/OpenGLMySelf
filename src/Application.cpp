@@ -128,7 +128,7 @@ int main()
         glm::mat4 lightProjection, lightView;
         glm::mat4 lightSpaceMatrix;
         GLfloat near_plane = 1.0f, far_plane = 7.5f;
-        lightPos.x = sin(glfwGetTime()) * 2.0f;
+        lightPos.x = static_cast<float>(sin(glfwGetTime()) * 2.0f);
         lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
         lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0, 1.0, 0.0));
         lightSpaceMatrix = lightProjection * lightView;
@@ -143,7 +143,7 @@ int main()
         glClear(GL_DEPTH_BUFFER_BIT);
         glClearColor(0.1f, 0.2f, 0.3f, 1.0f);
         glBindVertexArray(DragonVAO);
-        glDrawElements(GL_TRIANGLES, Indices.size(), GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(Indices.size()), GL_UNSIGNED_INT, 0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
@@ -163,7 +163,7 @@ int main()
 
         // Draw the normal model
         glBindVertexArray(DragonVAO);
-        glDrawElements(GL_TRIANGLES, Indices.size(), GL_UNSIGNED_INT, 0);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(Indices.size()), GL_UNSIGNED_INT, 0);
 
 
         glfwSwapBuffers(window);
@@ -232,7 +232,7 @@ unsigned int loadTexture(char const* path)
     unsigned char* data = stbi_load(path, &width, &height, &nrComponents, 0);
     if (data)
     {
-        GLenum format;
+        GLenum format = GL_RGB;
         if (nrComponents == 1)
             format = GL_RED;
         else if (nrComponents == 3)
@@ -269,18 +269,18 @@ bool __loadGLTF(const std::string& vFilename, tinygltf::Model& vModelGLTF)
     bool res = Loader.LoadASCIIFromFile(&vModelGLTF, &Err, &Warn, vFilename);
 
     if (!Warn.empty()) {
-        std::cout << "WARN: {}" << Warn;
+        std::cout << "WARN : " << Warn;
     }
 
     if (!Err.empty()) {
-        std::cout << "ERR: {}" << Err;
+        std::cout << "ERR : " << Err;
     }
 
     if (!res) {
-        std::cout << "Failed to load glTF: {}" << vFilename;
+        std::cout << "Failed to load glTF : " << vFilename << std::endl;
     }
     else {
-        std::cout << "Loaded glTF: {}" << vFilename;
+        std::cout << "Loaded glTF : " << vFilename << std::endl;
     }
 
     return res;
@@ -326,7 +326,7 @@ void __createVerticeAndIndice(tinygltf::Model& vGLTFModel, std::vector<float>& v
         if (node.mesh == -1) continue;
         const auto& Mesh = vGLTFModel.meshes[node.mesh];
         std::string MeshName = Mesh.name;
-        std::cout << "MeshName : {}" << MeshName << std::endl;
+        std::cout << "MeshName : " << MeshName << std::endl;
 
         for (auto& primitive : Mesh.primitives)
         {
@@ -351,7 +351,7 @@ void __createVerticeAndIndice(tinygltf::Model& vGLTFModel, std::vector<float>& v
                     __createVertexBufferData(vioVertices, BufferColor, (int)k);
                 }
 
-                std::cout << "Vertices.size : {}" << vioVertices.size() << std::endl;
+                std::cout << "Vertices.size : " << vioVertices.size() << std::endl;
                 assert(vioVertices.size() == vGLTFModel.accessors[primitive.attributes.at("POSITION")].count * 3 * 2);
             }
             else if (primitive.mode == TINYGLTF_MODE_TRIANGLE || primitive.mode == TINYGLTF_MODE_DEFAULT)
@@ -363,7 +363,7 @@ void __createVerticeAndIndice(tinygltf::Model& vGLTFModel, std::vector<float>& v
                 const int IndiceComponentType = vGLTFModel.accessors[primitive.indices].componentType;
 
                 __createIndiceBufferData(vioIndices, BufferViewIndice, BufferIndice, IndiceComponentType);
-                std::cout << "indice.size : {}" << vioIndices.size();
+                std::cout << "indice.size : " << vioIndices.size() << std::endl;
                 assert(vioIndices.size() == vGLTFModel.accessors[primitive.indices].count);
 
                 const tinygltf::BufferView& BufferViewPos = vGLTFModel.bufferViews[vGLTFModel.accessors[primitive.attributes.at("POSITION")].bufferView];
@@ -381,7 +381,7 @@ void __createVerticeAndIndice(tinygltf::Model& vGLTFModel, std::vector<float>& v
                     __createVertexBufferData(vioVertices, BufferPos, (int)i);
                     __createVertexBufferData(vioVertices, BufferNor, (int)k);
                 }
-                std::cout << "Vertices.size : {}" << vioVertices.size() << std::endl;
+                std::cout << "Vertices.size : " << vioVertices.size() << std::endl;
                 assert(vioVertices.size() == vGLTFModel.accessors[primitive.attributes.at("POSITION")].count * 6);
             }
         }
