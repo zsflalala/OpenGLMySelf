@@ -262,7 +262,7 @@ bool loadGLTF(const std::string& vFilename, tinygltf::Model& vModelGLTF)
     std::string Err;
     std::string Warn;
 
-    bool res = Loader.LoadASCIIFromFile(&vModelGLTF, &Err, &Warn, vFilename);
+    bool Res = Loader.LoadASCIIFromFile(&vModelGLTF, &Err, &Warn, vFilename);
 
     if (!Warn.empty()) {
         std::cout << "WARN : " << Warn;
@@ -272,14 +272,14 @@ bool loadGLTF(const std::string& vFilename, tinygltf::Model& vModelGLTF)
         std::cout << "ERR : " << Err;
     }
 
-    if (!res) {
+    if (!Res) {
         std::cout << "Failed to load glTF : " << vFilename << std::endl;
     }
     else {
         std::cout << "Loaded glTF : " << vFilename << std::endl;
     }
 
-    return res;
+    return Res;
 }
 
 void createIndiceBufferData(std::vector<unsigned int>& vIndices, const tinygltf::BufferView& vBufferView, const tinygltf::Buffer& vBuffer, const int& vComponentType)

@@ -28,7 +28,7 @@ const int TINYGLTF_COMPONETTYPE_UNINT = 5125;
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
-Camera camera(glm::vec3(0.0f, 0.0f, 30.0f));
+CCamera camera(glm::vec3(0.0f, 0.0f, 30.0f));
 
 bool firstMouse = true;
 float yaw = -90.0f;	// yaw is initialized to -90.0 degrees since a yaw of 0.0 results in a direction vector pointing to the right so we initially rotate a bit to the left.
@@ -132,10 +132,10 @@ int main()
     glEnableVertexAttribArray(0);
 
 
-    Shader CubeShader("./shaders/shader.vs", "./shaders/shader.fs");
-    Shader FramebufferProgram("./shaders/framebuffer.vs", "./shaders/framebuffer.fs" );
-    Shader ShadowMapProgram("./shaders/shadowMap.vs", "./shaders/shadowMap.fs");
-    Shader LightingShader("./shaders/lightShader.vs", "./shaders/lightShader.fs");
+    CShader CubeShader("./shaders/shader.vs", "./shaders/shader.fs");
+    CShader FramebufferProgram("./shaders/framebuffer.vs", "./shaders/framebuffer.fs" );
+    CShader ShadowMapProgram("./shaders/shadowMap.vs", "./shaders/shadowMap.fs");
+    CShader LightingShader("./shaders/lightShader.vs", "./shaders/lightShader.fs");
     
     glm::vec4 lightColor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
 	glm::vec3 lightPos = glm::vec3(1.2f, 1.0f, 2.0f);
