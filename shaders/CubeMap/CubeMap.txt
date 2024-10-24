@@ -174,7 +174,7 @@ int main()
     
     glCreateVertexArrays(1, &CubeVAO);
     glCreateBuffers(1, &CubeVBO);
-    //glNamedBufferData(CubeVBO, sizeof(CubeVertices), &CubeVertices, GL_STATIC_DRAW); // ÕâÒ»ĞĞºÍÏÂÒ»ĞĞ¾ù¿É
+    //glNamedBufferData(CubeVBO, sizeof(CubeVertices), &CubeVertices, GL_STATIC_DRAW); // è¿™ä¸€è¡Œå’Œä¸‹ä¸€è¡Œå‡å¯
     glNamedBufferStorage(CubeVBO, sizeof(CubeVertices), &CubeVertices, GL_DYNAMIC_STORAGE_BIT);
     glVertexArrayVertexBuffer(CubeVAO, 0, CubeVBO, 0, 5 * sizeof(float));
     glEnableVertexArrayAttrib(CubeVAO, 0);

@@ -129,7 +129,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)src;$(SolutionDir)Dependence\GLFW\include;$(SolutionDir)Dependence\GLEW\include;$(SolutionDir)Dependence\glad-core-4.6\include;$(SolutionDir)Dependence\tinygltf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)src;$(SolutionDir)Textures;$(SolutionDir)Dependence\GLFW\include;$(SolutionDir)Dependence\GLEW\include;$(SolutionDir)Dependence\glad-core-4.6\include;$(SolutionDir)Dependence\tinygltf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -162,6 +162,8 @@
     <ClCompile Include="src\Application.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include=".gitattributes" />
+    <None Include=".gitignore" />
     <None Include="packages.config" />
     <None Include="shaders\lightShader.fs" />
     <None Include="shaders\lightShader.vs" />

@@ -30,6 +30,8 @@
     <None Include="shaders\shadowMapping.fs" />
     <None Include="shaders\shadowMappingDepth.vs" />
     <None Include="shaders\shadowMappingDepth.fs" />
+    <None Include=".gitattributes" />
+    <None Include=".gitignore" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\shader.h">
