@@ -243,8 +243,9 @@ int main()
         CubeShader.setMat4("view", View);
         CubeShader.setMat4("projection", Projection);
         glBindVertexArray(CubeVAO);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, CubeTexture);
+        /*glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, CubeTexture);*/
+        glBindTextureUnit(0, CubeTexture);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
 
@@ -255,8 +256,9 @@ int main()
         SkyboxShader.setMat4("projection", Projection);
  
         glBindVertexArray(SkyboxVAO);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, CubemapTexture);
+        /*glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, CubemapTexture);*/
+        glBindTextureUnit(0, CubemapTexture);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
         glDepthFunc(GL_LESS);
