@@ -41,7 +41,7 @@ int main()
     }
 
     // 编译和加载着色器
-    CShader geometryShader("./shaders/geometry.vs", "./shaders/geometry.fs");
+    CShader geometryShader("./shaders/gbuffer.vs", "./shaders/gbuffer.fs");
     CShader lightingShader("./shaders/lighting.vs", "./shaders/lighting.fs");
 
     glUniform1i(glGetUniformLocation(lightingShader.ID, "gPosition"), 0);

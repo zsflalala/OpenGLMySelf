@@ -70,8 +70,8 @@ int main()
         return -1;
     }
 
-    CShader DragonDefaultShader("./shaders/GeometryShader/GeometryNormalize/geometry_default.vs", "./shaders/GeometryShader/GeometryNormalize/geometry_default.fs");
-    CShader DragonNormalizeShader("./shaders/GeometryShader/GeometryNormalize/geometry_normalvisualize.vs", "./shaders/GeometryShader/GeometryNormalize/geometry_normalvisualize.fs", "./shaders/GeometryShader/GeometryNormalize/geometry_normalvisualize.gs");
+    CShader DragonDefaultShader("./shaders/geometry_default.vs", "./shaders/geometry_default.fs");
+    CShader DragonNormalizeShader("./shaders/geometry_normalvisualize.vs", "./shaders/geometry_normalvisualize.fs", "./shaders/geometry_normalvisualize.gs");
 
     tinygltf::Model GLTFModel;
     loadGLTF("./models/dragon.gltf", GLTFModel);

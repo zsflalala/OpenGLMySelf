@@ -70,8 +70,7 @@ int main()
         return -1;
     }
 
-    CShader DragonDefaultShader("./shaders/GeometryShader/GeometryNormalize/geometry_default.vs", "./shaders/GeometryShader/GeometryNormalize/geometry_default.fs");
-    CShader DragonNormalizeShader("./shaders/GeometryShader/GeometryNormalize/geometry_normalvisualize.vs", "./shaders/GeometryShader/GeometryNormalize/geometry_normalvisualize.fs", "./shaders/GeometryShader/GeometryNormalize/geometry_normalvisualize.gs");
+    CShader DragonExplodShader("./shaders/geometry_explod.vs", "./shaders/geometry_explod.fs", "./shaders/geometry_explod.gs");
 
     tinygltf::Model GLTFModel;
     loadGLTF("./models/dragon.gltf", GLTFModel);
@@ -92,6 +91,42 @@ int main()
     glVertexArrayAttribFormat(DragonVAO, 1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float));
     glVertexArrayAttribBinding(DragonVAO, 0, 0);
     glVertexArrayAttribBinding(DragonVAO, 1, 0);
+    /*glGenVertexArrays(1, &DragonVAO);
+    glGenBuffers(1, &DragonVBO);
+    glGenBuffers(1, &DragonEBO);
+    glBindVertexArray(DragonVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, DragonVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * Vertices.size(), Vertices.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, DragonEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(unsigned int) * Indices.size(), Indices.data(), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);*/
+
+    /*//QA : why this code use GL_DYNAMIC_STORAGE_BIT , if I use GL_STATIC_DRAW, this will not draw correctly. The same above the code.
+    std::vector<float> Vertices = {
+        0.5f, 0.5f, 0.0f,
+        0.5f, -0.5f, 0.0f,
+        -0.5f, -0.5f, 0.0f,
+        -0.5f, 0.5f, 0.0f
+    };
+    std::vector<unsigned int> Indices = {
+        0, 1, 3, 
+        1, 2, 3 
+    };
+    unsigned int DragonVAO, DragonVBO, DragonEBO;
+    glCreateVertexArrays(1, &DragonVAO);
+    glCreateBuffers(1, &DragonVBO);
+    glNamedBufferStorage(DragonVBO, sizeof(float) * Vertices.size(), Vertices.data(), GL_DYNAMIC_STORAGE_BIT);
+    glCreateBuffers(1, &DragonEBO);
+    glNamedBufferStorage(DragonEBO, sizeof(unsigned int) * Indices.size(), Indices.data(), GL_DYNAMIC_STORAGE_BIT);
+    glVertexArrayVertexBuffer(DragonVAO, 0, DragonVBO, 0, 3 * sizeof(float));
+    glVertexArrayElementBuffer(DragonVAO, DragonEBO);
+    glEnableVertexArrayAttrib(DragonVAO, 0);
+    glVertexArrayAttribFormat(DragonVAO, 0, 3, GL_FLOAT, GL_FALSE, 0 * sizeof(float));
+    glVertexArrayAttribBinding(DragonVAO, 0, 0);*/
 
     while (!glfwWindowShouldClose(pWindow))
     {
@@ -107,17 +142,11 @@ int main()
         glm::mat4 Projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 1.0f, 100.0f);
         glm::mat4 View = Camera.GetViewMatrix();;
         glm::mat4 Model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-        DragonDefaultShader.use();
-        DragonDefaultShader.setMat4("projection", Projection);
-        DragonDefaultShader.setMat4("view", View);
-        DragonDefaultShader.setMat4("model", Model);
-        glBindVertexArray(DragonVAO);
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(Indices.size()), GL_UNSIGNED_INT, 0);
-
-        DragonNormalizeShader.use();
-        DragonNormalizeShader.setMat4("projection", Projection);
-        DragonNormalizeShader.setMat4("view", View);
-        DragonNormalizeShader.setMat4("model", Model);
+        DragonExplodShader.use();
+        DragonExplodShader.setMat4("projection", Projection);
+        DragonExplodShader.setMat4("view", View);
+        DragonExplodShader.setMat4("model", Model);
+        DragonExplodShader.setFloat("time", static_cast<float>(glfwGetTime()));
         glBindVertexArray(DragonVAO);
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(Indices.size()), GL_UNSIGNED_INT, 0);
 

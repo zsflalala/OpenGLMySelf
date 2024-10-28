@@ -7,6 +7,7 @@
 #include <string>
 #include <tiny_gltf.h>
 #include <vector>
+#include <cmath>
 #include <cstring>
 #include "shader.h"
 #include "camera.h"
@@ -70,28 +71,158 @@ int main()
         return -1;
     }
 
-    CShader DragonDefaultShader("./shaders/GeometryShader/GeometryNormalize/geometry_default.vs", "./shaders/GeometryShader/GeometryNormalize/geometry_default.fs");
-    CShader DragonNormalizeShader("./shaders/GeometryShader/GeometryNormalize/geometry_normalvisualize.vs", "./shaders/GeometryShader/GeometryNormalize/geometry_normalvisualize.fs", "./shaders/GeometryShader/GeometryNormalize/geometry_normalvisualize.gs");
+    float CubeVertices[] = {
+        // positions          // normals
+        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+         0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+         0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+         0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
 
-    tinygltf::Model GLTFModel;
-    loadGLTF("./models/dragon.gltf", GLTFModel);
-    std::vector<float> Vertices;
-    std::vector<unsigned int> Indices;
-    createVerticeAndIndice(GLTFModel, Vertices, Indices);
-    unsigned int DragonVAO, DragonVBO, DragonEBO;
-    glCreateVertexArrays(1, &DragonVAO);
-    glCreateBuffers(1, &DragonVBO);
-    glNamedBufferStorage(DragonVBO, Vertices.size() * sizeof(float), Vertices.data(), GL_DYNAMIC_STORAGE_BIT);
-    glCreateBuffers(1, &DragonEBO);
-    glNamedBufferStorage(DragonEBO, Indices.size() * sizeof(unsigned int), Indices.data(), GL_DYNAMIC_STORAGE_BIT);
-    glVertexArrayVertexBuffer(DragonVAO, 0, DragonVBO, 0, 6 * sizeof(float));
-    glVertexArrayElementBuffer(DragonVAO, DragonEBO);
-    glEnableVertexArrayAttrib(DragonVAO, 0);
-    glEnableVertexArrayAttrib(DragonVAO, 1);
-    glVertexArrayAttribFormat(DragonVAO, 0, 3, GL_FLOAT, GL_FALSE, 0 * sizeof(float));
-    glVertexArrayAttribFormat(DragonVAO, 1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float));
-    glVertexArrayAttribBinding(DragonVAO, 0, 0);
-    glVertexArrayAttribBinding(DragonVAO, 1, 0);
+        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+         0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+         0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+         0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f, 1.0f,
+
+        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+        -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+        -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+
+         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+         0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+         0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+
+        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+         0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+         0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+         0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+
+        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+         0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f
+    };
+    float SkyboxVertices[] = {
+        // positions          
+        -1.0f,  1.0f, -1.0f,
+        -1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+
+        -1.0f, -1.0f,  1.0f,
+        -1.0f, -1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f, -1.0f,
+        -1.0f,  1.0f,  1.0f,
+        -1.0f, -1.0f,  1.0f,
+
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+
+        -1.0f, -1.0f,  1.0f,
+        -1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f, -1.0f,  1.0f,
+        -1.0f, -1.0f,  1.0f,
+
+        -1.0f,  1.0f, -1.0f,
+         1.0f,  1.0f, -1.0f,
+         1.0f,  1.0f,  1.0f,
+         1.0f,  1.0f,  1.0f,
+        -1.0f,  1.0f,  1.0f,
+        -1.0f,  1.0f, -1.0f,
+
+        -1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,
+         1.0f, -1.0f, -1.0f,
+         1.0f, -1.0f, -1.0f,
+        -1.0f, -1.0f,  1.0f,
+         1.0f, -1.0f,  1.0f
+    };
+
+    // cube VAO
+    unsigned int CubeVAO, CubeVBO;
+    /*glGenVertexArrays(1, &CubeVAO);
+    glGenBuffers(1, &CubeVBO);
+    glBindVertexArray(CubeVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, CubeVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(CubeVertices), &CubeVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));*/
+    
+    glCreateVertexArrays(1, &CubeVAO);
+    glCreateBuffers(1, &CubeVBO);
+    //glNamedBufferData(CubeVBO, sizeof(CubeVertices), &CubeVertices, GL_STATIC_DRAW); // 这一行和下一行均可
+    glNamedBufferStorage(CubeVBO, sizeof(CubeVertices), &CubeVertices, GL_DYNAMIC_STORAGE_BIT);
+    glVertexArrayVertexBuffer(CubeVAO, 0, CubeVBO, 0, 6 * sizeof(float));
+    glEnableVertexArrayAttrib(CubeVAO, 0);
+    glEnableVertexArrayAttrib(CubeVAO, 1);
+    glVertexArrayAttribFormat(CubeVAO, 0, 3, GL_FLOAT, GL_FALSE, (0 * sizeof(float)));
+    glVertexArrayAttribFormat(CubeVAO, 1, 3, GL_FLOAT, GL_FALSE, (3 * sizeof(float)));
+    glVertexArrayAttribBinding(CubeVAO, 0, 0);
+    glVertexArrayAttribBinding(CubeVAO, 1, 0);
+
+    // skybox VAO
+    unsigned int SkyboxVAO, SkyboxVBO;
+    /*glGenVertexArrays(1, &SkyboxVAO);
+    glGenBuffers(1, &SkyboxVBO);
+    glBindVertexArray(SkyboxVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, SkyboxVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(SkyboxVertices), &SkyboxVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);*/
+
+    glCreateVertexArrays(1, &SkyboxVAO);
+    glCreateBuffers(1, &SkyboxVBO);
+    glNamedBufferStorage(SkyboxVBO, sizeof(SkyboxVertices), &SkyboxVertices, GL_DYNAMIC_STORAGE_BIT);
+    glVertexArrayVertexBuffer(SkyboxVAO, 0, SkyboxVBO, 0, 3 * sizeof(float));
+    glEnableVertexArrayAttrib(SkyboxVAO, 0);
+    glVertexArrayAttribFormat(SkyboxVAO, 0, 3, GL_FLOAT, GL_FALSE, (0 * sizeof(float)));
+    glVertexArrayAttribBinding(SkyboxVAO, 0, 0);
+
+    unsigned int CubeTexture = loadTexture("./textures/container.jpg");
+
+    std::vector<std::string> Faces
+    {
+        "./textures/skybox/right.jpg",
+        "./textures/skybox/left.jpg",
+        "./textures/skybox/top.jpg",
+        "./textures/skybox/bottom.jpg",
+        "./textures/skybox/front.jpg",
+        "./textures/skybox/back.jpg"
+    };
+    unsigned int CubemapTexture = loadCubemap(Faces);
+
+    CShader CubeShader("./shaders/cubemaps_envMapping.vs", "./shaders/cubemaps_envMapping.fs");
+    CShader SkyboxShader("./shaders/skybox.vs", "./shaders/skybox.fs");
+
+    CubeShader.use();
+    CubeShader.setInt("skybox", 0);
+
+    SkyboxShader.use();
+    SkyboxShader.setInt("skybox", 0);
 
     while (!glfwWindowShouldClose(pWindow))
     {
@@ -104,29 +235,42 @@ int main()
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        glm::mat4 Projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 1.0f, 100.0f);
-        glm::mat4 View = Camera.GetViewMatrix();;
-        glm::mat4 Model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-        DragonDefaultShader.use();
-        DragonDefaultShader.setMat4("projection", Projection);
-        DragonDefaultShader.setMat4("view", View);
-        DragonDefaultShader.setMat4("model", Model);
-        glBindVertexArray(DragonVAO);
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(Indices.size()), GL_UNSIGNED_INT, 0);
+        CubeShader.use();
+        glm::mat4 Model = glm::mat4(1.0f);
+        glm::mat4 View = Camera.GetViewMatrix();
+        glm::mat4 Projection = glm::perspective(glm::radians(Camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        CubeShader.setMat4("model", Model);
+        CubeShader.setMat4("view", View);
+        CubeShader.setMat4("projection", Projection);
+        CubeShader.setVec3("cameraPos", Camera.Position);
+        glBindVertexArray(CubeVAO);
+        /*glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, CubeTexture);*/
+        glBindTextureUnit(0, CubemapTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
 
-        DragonNormalizeShader.use();
-        DragonNormalizeShader.setMat4("projection", Projection);
-        DragonNormalizeShader.setMat4("view", View);
-        DragonNormalizeShader.setMat4("model", Model);
-        glBindVertexArray(DragonVAO);
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(Indices.size()), GL_UNSIGNED_INT, 0);
+        glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
+        SkyboxShader.use();
+        View = glm::mat4(glm::mat3(Camera.GetViewMatrix())); // remove translation from the view matrix
+        SkyboxShader.setMat4("view", View);
+        SkyboxShader.setMat4("projection", Projection);
+ 
+        glBindVertexArray(SkyboxVAO);
+        /*glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, CubemapTexture);*/
+        glBindTextureUnit(0, CubemapTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
+        glDepthFunc(GL_LESS);
 
         glfwSwapBuffers(pWindow);
         glfwPollEvents();
     }
-    glDeleteVertexArrays(1, &DragonVAO);
-    glDeleteBuffers(1, &DragonVBO);
-    glDeleteBuffers(1, &DragonEBO);
+    glDeleteVertexArrays(1, &CubeVAO);
+    glDeleteVertexArrays(1, &SkyboxVAO);
+    glDeleteBuffers(1, &CubeVBO);
+    glDeleteBuffers(1, &SkyboxVBO);
     glfwDestroyWindow(pWindow);
     glfwTerminate();
     return 0;

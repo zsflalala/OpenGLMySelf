@@ -27,5 +27,5 @@ void main()
     vec3 specular = lightColor * spec;
     lighting += diffuse + specular;  
 
-    FragColor = vec4(FragPos, 1.0);
+    FragColor = vec4(lighting, 1.0);
 }
