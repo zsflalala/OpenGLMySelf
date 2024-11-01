@@ -94,6 +94,48 @@ public:
             glDeleteShader(geometry);
 
     }
+
+    CShader(const char* ComputeShaderPath)
+    {
+        std::ifstream ComputeFile;
+        std::stringstream ComputeSStream;
+        std::string ComputeString;
+
+        ComputeFile.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+        ComputeFile.open(ComputeShaderPath);
+       
+        try
+        {
+            if (!ComputeFile.is_open()) {
+                throw std::exception("Open file error");
+            }
+
+            ComputeSStream << ComputeFile.rdbuf();
+            ComputeFile.close();
+
+            ComputeString = ComputeSStream.str();
+
+            const char* ComputeSource = ComputeString.c_str();
+            
+            GLuint ComputeShader;
+
+            ComputeShader = glCreateShader(GL_COMPUTE_SHADER);
+
+            glShaderSource(ComputeShader, 1, &ComputeSource, NULL);
+            glCompileShader(ComputeShader);
+            checkCompileErrors(ComputeShader, "COMPUTE");
+
+            ID = glCreateProgram();
+            glAttachShader(ID, ComputeShader);
+            glLinkProgram(ID);
+            checkCompileErrors(ID, "PROGRAM");
+            glDeleteShader(ComputeShader);
+        }
+        catch (const std::exception& ex)
+        {
+            printf(ex.what());
+        }
+    }
     // activate the shader
     // ------------------------------------------------------------------------
     void use()

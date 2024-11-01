@@ -7,7 +7,7 @@
 #include <iostream>
 #include "shader.h"
 
-// ´°¿Ú´óĞ¡
+// çª—å£å¤§å°
 const unsigned int SCR_WIDTH = 800;
 const unsigned int SCR_HEIGHT = 600;
 
@@ -22,13 +22,13 @@ struct SParticle
 
 int main()
 {
-    // ³õÊ¼»¯GLFW
+    // åˆå§‹åŒ–GLFW
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    // ´´½¨´°¿Ú
+    // åˆ›å»ºçª—å£
     GLFWwindow* pWindow = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Particles", NULL, NULL);
     if (pWindow == NULL)
     {
@@ -38,7 +38,7 @@ int main()
     }
     glfwMakeContextCurrent(pWindow);
 
-    // ³õÊ¼»¯GLAD
+    // åˆå§‹åŒ–GLAD
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
         std::cerr << "Failed to initialize GLAD" << std::endl;
@@ -102,15 +102,15 @@ int main()
     float DeltaTime = 0.0f;
     float LastFrame = 0.0f;
 
-    // Ö÷Ñ­»·
+    // ä¸»å¾ªç¯
     while (!glfwWindowShouldClose(pWindow))
     {
-        // ÊäÈë´¦Àí
+        // è¾“å…¥å¤„ç†
         float CurrentFrame = static_cast<float>(glfwGetTime());
         DeltaTime = (CurrentFrame - LastFrame) * 1000.0;
         LastFrame = CurrentFrame;
 
-        // ¼¸ºÎ´¦Àí½×¶Î
+        // å‡ ä½•å¤„ç†é˜¶æ®µ
         glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
         glClearColor(0.3f, 0.3f, 0.3f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -118,9 +118,18 @@ int main()
         ComputeShader.use();
         glBindBuffer(GL_UNIFORM_BUFFER, ParticleUBO);
         glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(float), &DeltaTime);
+
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, ParticlesSSBO);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ParticlesSSBO);
+
         glDispatchCompute(PARTICLES_COUNT / 256 + (PARTICLES_COUNT % 256 > 0 ? 1 : 0), 1, 1);
+
+        //è¿™éƒ¨åˆ†å¯ä»¥ä»GPUè·å–æ•°æ®
+        //glBindBuffer(GL_SHADER_STORAGE_BUFFER, ParticlesSSBO);
+        //glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);//éš”æ–­ä½œç”¨ï¼Œä¸ºäº†è®©æ•°æ®ä¿®æ”¹å®Œæˆ
+        //pMappedPtr = glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY); //è·å–ç€è‰²å™¨bufferå—å†…å­˜åœ°å€
+        //memcpy(&Particles, pMappedPtr, sizeof(Particles));//æ‹·è´bufferå—æ•°æ®åˆ°ç»“æ„ä½“
+        //glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);		
 
         ParticleShader.use();
         glBindVertexArray(ParticleVAO);
@@ -132,7 +141,7 @@ int main()
         glfwPollEvents();
     }
 
-    // ÇåÀí×ÊÔ´
+    // æ¸…ç†èµ„æº
     glDeleteFramebuffers(1, &ParticleVAO);
     glDeleteBuffers(1, &ParticleVBO);
     glDeleteBuffers(1, &ParticleUBO);

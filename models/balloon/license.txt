@@ -1,0 +1,11 @@
+Model Information:
+* title:	Low poly hot air balloon
+* source:	https://sketchfab.com/3d-models/low-poly-hot-air-balloon-3eff436e33ce4db3a54d4d8edc43528b
+* author:	stormsurgestudio (https://sketchfab.com/stormsurgestudio)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Low poly hot air balloon" (https://sketchfab.com/3d-models/low-poly-hot-air-balloon-3eff436e33ce4db3a54d4d8edc43528b) by stormsurgestudio (https://sketchfab.com/stormsurgestudio) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

@@ -15,24 +15,34 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Application.cpp">
+    <ClCompile Include="BasicDrawSolution.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="glad.c">
+    <ClCompile Include="DrawCallProblem.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MultiDrawIndirectSolution.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="BasicDrawSolution.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DrawCallProblem.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DrawCallSolution.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MultiDrawIndirectSolution.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
-    <None Include=".gitattributes" />
-    <None Include=".gitignore" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="src\shader.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="src\camera.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>
