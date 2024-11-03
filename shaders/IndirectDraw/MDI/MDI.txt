@@ -183,6 +183,9 @@ int main() {
         LastFrame = CurrentFrame;
         processInput(pWindow);
 
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        //glEnable(GL_DEPTH_TEST);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         glClear(GL_COLOR_BUFFER_BIT);
         glClearColor(0.1f, 0.2f, 0.1f, 1.0f);
         TotalShader.use();

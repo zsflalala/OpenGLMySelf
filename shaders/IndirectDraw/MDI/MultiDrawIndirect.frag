@@ -9,5 +9,5 @@ void main()
 {
     vec3 Color = normalize(vNormal) * 0.5 + 0.5;
     //vec3 Color = vColor.rgb;
-    oFragColor = vec4(1.0, 1.0, 1.0, 1.0);
+    oFragColor = vec4(Color, 1.0);
 }
