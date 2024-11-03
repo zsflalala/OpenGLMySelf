@@ -1,0 +1,89 @@
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <vector>
+
+struct SDrawArraysIndirectCommand {
+    GLuint _Count;
+    GLuint _InstanceCount;
+    GLuint _First;
+    GLuint _BaseInstance;
+};
+
+void framebufferSizeCallback(GLFWwindow* vWindow, int vWidth, int vHeight) 
+{
+    glViewport(0, 0, vWidth, vHeight);
+}
+
+int main() {
+    if (!glfwInit()) return -1;
+
+    GLFWwindow* pWindow = glfwCreateWindow(800, 600, "OpenGL IndirectDraw Demo", NULL, NULL);
+    if (!pWindow) 
+    {
+        glfwTerminate();
+        return -1;
+    }
+
+    glfwMakeContextCurrent(pWindow);
+
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) return -1;
+
+    int WindowWidth, WindowHeight;
+    glfwGetFramebufferSize(pWindow, &WindowWidth, &WindowHeight);
+    glViewport(0, 0, WindowWidth, WindowHeight);
+    glfwSetFramebufferSizeCallback(pWindow, framebufferSizeCallback);
+
+
+    // 指定三角形的顶点数据
+    std::vector<float> Vertices = 
+    {
+        -0.5f, -0.5f, 0.0f,
+         0.5f, -0.5f, 0.0f,
+         0.5f,  0.5f, 0.0f,
+    };
+
+    GLuint TriangleVBO;
+    glGenBuffers(1, &TriangleVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, TriangleVBO);
+    glBufferData(GL_ARRAY_BUFFER, Vertices.size() * sizeof(float), Vertices.data(), GL_STATIC_DRAW);
+
+    // 创建一个VAO用于管理顶点数据格式
+    GLuint TriangleVAO;
+    glGenVertexArrays(1, &TriangleVAO);
+    glBindVertexArray(TriangleVAO);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
+
+    // 创建indirect draw命令
+    SDrawArraysIndirectCommand DrawCommand;
+    DrawCommand._Count = 3;
+    DrawCommand._InstanceCount = 1;
+    DrawCommand._First = 0;
+    DrawCommand._BaseInstance = 0;
+
+    // 创建indirect draw缓冲区
+    GLuint IndirectBuffer;
+    glGenBuffers(1, &IndirectBuffer);
+    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, IndirectBuffer);
+    glBufferData(GL_DRAW_INDIRECT_BUFFER, sizeof(SDrawArraysIndirectCommand), &DrawCommand, GL_STATIC_DRAW);
+
+    while (!glfwWindowShouldClose(pWindow))
+    {
+        glClear(GL_COLOR_BUFFER_BIT);
+        glClearColor(0.1f, 0.2f, 0.1f, 1.0f);
+        glBindVertexArray(TriangleVAO);
+        glDrawArraysIndirect(GL_TRIANGLES, 0);
+
+        glfwSwapBuffers(pWindow);
+        glfwPollEvents();
+    }
+
+    // 清理资源
+    glDeleteVertexArrays(1, &TriangleVAO);
+    glDeleteBuffers(1, &TriangleVBO);
+    glDeleteBuffers(1, &IndirectBuffer);
+
+    glfwTerminate();
+    return 0;
+}

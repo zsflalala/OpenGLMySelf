@@ -39,6 +39,7 @@ inline void CDrawCallSolution::_createAndFillAndBindShaderStorageBuffer(const st
 	));
 	GL_SAFE_CALL(glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ModelsSSBO));
 
+	// DSA
 	GLuint ColorsSSBO;
 	GL_SAFE_CALL(glCreateBuffers(1, &ColorsSSBO));
 	GL_SAFE_CALL(glNamedBufferStorage(ColorsSSBO,

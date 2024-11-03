@@ -23,7 +23,7 @@ void CMultiDrawIndirectSolution::render()
 	glMultiDrawElementsIndirect(
 		GL_TRIANGLES,
 		GL_UNSIGNED_INT,
-		nullptr,
+		nullptr,   
 		static_cast<GLsizei>(m_pProblem->getMeshes().size()),
 		0
 	);

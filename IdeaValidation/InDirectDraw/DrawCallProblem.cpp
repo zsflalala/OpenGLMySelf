@@ -80,13 +80,8 @@ void CDrawCallProblem::__shutdown()
 void CDrawCallProblem::__render() const
 {
 	validation_utils::CTimer Timer;
-	//float LastTime = 0.0f;
 	while (!glfwWindowShouldClose(m_pWindow))
 	{
-		//const float CurrTime = static_cast<float>(glfwGetTime());
-		//const float DeltaTime = CurrTime - LastTime;
-		//LastTime = CurrTime;
-		//glfwSetWindowTitle(m_pWindow, std::format("FPS: {}", static_cast<int>(1.0f / DeltaTime)).c_str());
 		glfwPollEvents();
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		Timer.start();
