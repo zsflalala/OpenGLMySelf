@@ -125,7 +125,7 @@ void CDragonGLTFModel::__createVerticeAndIndice()
                 const int IndiceComponentType = m_ModelGLTF.accessors[Primitive.indices].componentType;
 
                 __createIndiceBufferData(m_Indices, BufferViewIndice, BufferIndice, IndiceComponentType);
-                std::cout << "indice.size : " << m_Indices.size() << std::endl;
+                std::cout << "Indice.size : " << m_Indices.size() << std::endl;
                 assert(m_Indices.size() == m_ModelGLTF.accessors[Primitive.indices].count);
 
                 const tinygltf::BufferView& BufferViewPos = m_ModelGLTF.bufferViews[m_ModelGLTF.accessors[Primitive.attributes.at("POSITION")].bufferView];
