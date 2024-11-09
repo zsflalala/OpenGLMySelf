@@ -14,10 +14,10 @@ layout (std140) uniform Matrices
     mat4 view;
 };
 
-out vec3 vNormal;
+out vec3 voNormal;
 
 void main()
 {
-    vNormal = normalize(iNor);
+    voNormal = iNor;
     gl_Position = projection * view * uModels[gl_DrawID] * vec4(iPos, 1.0);
 }

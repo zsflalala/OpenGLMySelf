@@ -1,7 +1,4 @@
 #pragma once
-#ifndef CAMERA_H
-#define CAMERA_H
-
 #include <glad/glad.h>
 
 // Defines several possible options for camera movement. Used as abstraction to stay away from window-system specific input methods
@@ -20,7 +17,6 @@ const float PITCH = 0.0f;
 const float SPEED = 2.5f;
 const float SENSITIVITY = 0.1f;
 const float ZOOM = 45.0f;
-
 
 // An abstract camera class that processes input and calculates the corresponding Euler Angles, Vectors and Matrices for use in OpenGL
 class CCamera
@@ -130,4 +126,3 @@ private:
         Up = glm::normalize(glm::cross(Right, Front));
     }
 };
-#endif

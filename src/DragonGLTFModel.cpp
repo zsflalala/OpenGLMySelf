@@ -12,6 +12,7 @@ bool CDragonGLTFModel::initModel()
     bool LoadRes = __loadGLTF(m_FileName);
     if (!LoadRes) return LoadRes;
     __createVerticeAndIndice();
+    __createImageData();
     return true;
 }
 
@@ -45,6 +46,18 @@ bool CDragonGLTFModel::__loadGLTF(const std::string& vFilename)
     return Res;
 }
 
+void CDragonGLTFModel::__createImageData()
+{
+    if (m_ModelGLTF.textures.size() > 0)
+    {
+        tinygltf::Texture& Tex = m_ModelGLTF.textures[0];
+        tinygltf::Image& Image = m_ModelGLTF.images[Tex.source];
+        m_ImageData   = Image.image;
+        m_ImageWidth  = Image.width;
+        m_ImageHeight = Image.height;
+    }
+}
+
 void CDragonGLTFModel::__createIndiceBufferData(std::vector<unsigned int>& vIndices, const tinygltf::BufferView& vBufferView, const tinygltf::Buffer& vBuffer, const int& vComponentType)
 {
     unsigned short TempUShortIndice;
@@ -69,12 +82,11 @@ void CDragonGLTFModel::__createIndiceBufferData(std::vector<unsigned int>& vIndi
     }
 }
 
-void CDragonGLTFModel::__createVertexBufferData(std::vector<float>& vVertices, const tinygltf::Buffer& vBuffer, const int vIndex)
+void CDragonGLTFModel::__createVertexBufferData(std::vector<float>& vVertices, const tinygltf::Buffer& vBuffer, const int vOffset, const int vVecBytes)
 {
     float TempVertice;
     const int FloatByte = 4;
-    const int FloatNum = 3;
-    for (auto i = vIndex; i < vIndex + FloatNum * FloatByte; i += FloatByte)
+    for (size_t i = vOffset; i < vOffset + vVecBytes; i += FloatByte)
     {
         std::memcpy(&TempVertice, &vBuffer.data.at(i), sizeof(float));
         vVertices.push_back(TempVertice);
@@ -104,13 +116,17 @@ void CDragonGLTFModel::__createVerticeAndIndice()
                 glm::vec3 MinPos(AccessorPos.minValues[0], AccessorPos.minValues[1], AccessorPos.minValues[2]);
                 glm::vec3 MaxPos(AccessorPos.maxValues[0], AccessorPos.maxValues[1], AccessorPos.maxValues[2]);
 
+                assert(AccessorPos.count == AccessorColor.count);
+
                 const int Vec3Byte = 12;
-                for (size_t i = BufferViewPos.byteOffset, k = BufferViewColor.byteOffset;
-                    (i < BufferViewPos.byteOffset + BufferViewPos.byteLength && k < BufferViewColor.byteOffset + BufferViewColor.byteLength);
-                    i += Vec3Byte, k += Vec3Byte)
+                int PosOffset = BufferViewPos.byteOffset;
+                int ColorOffset = BufferViewColor.byteOffset;
+                for (size_t i = 0;i < AccessorPos.count;i++)
                 {
-                    __createVertexBufferData(m_Vertices, BufferPos, (int)i);
-                    __createVertexBufferData(m_Vertices, BufferColor, (int)k);
+                    __createVertexBufferData(m_Vertices, BufferPos, PosOffset, Vec3Byte);
+                    __createVertexBufferData(m_Vertices, BufferColor, ColorOffset, Vec3Byte);
+                    PosOffset   += Vec3Byte;
+                    ColorOffset += Vec3Byte;
                 }
 
                 std::cout << "Vertices.size : " << m_Vertices.size() << std::endl;
@@ -128,23 +144,36 @@ void CDragonGLTFModel::__createVerticeAndIndice()
                 std::cout << "Indice.size : " << m_Indices.size() << std::endl;
                 assert(m_Indices.size() == m_ModelGLTF.accessors[Primitive.indices].count);
 
-                const tinygltf::BufferView& BufferViewPos = m_ModelGLTF.bufferViews[m_ModelGLTF.accessors[Primitive.attributes.at("POSITION")].bufferView];
+                const tinygltf::Accessor& AccessorPos = m_ModelGLTF.accessors[Primitive.attributes.at("POSITION")];
+                const tinygltf::BufferView& BufferViewPos = m_ModelGLTF.bufferViews[AccessorPos.bufferView];
                 const tinygltf::Buffer& BufferPos = m_ModelGLTF.buffers[BufferViewPos.buffer];
-                const tinygltf::BufferView& BufferViewNor = m_ModelGLTF.bufferViews[m_ModelGLTF.accessors[Primitive.attributes.at("NORMAL")].bufferView];
+                const tinygltf::Accessor& AccessorNor = m_ModelGLTF.accessors[Primitive.attributes.at("NORMAL")];
+                const tinygltf::BufferView& BufferViewNor = m_ModelGLTF.bufferViews[AccessorNor.bufferView];
                 const tinygltf::Buffer& BufferNor = m_ModelGLTF.buffers[BufferViewNor.buffer];
+                const tinygltf::Accessor& AccessorTex = m_ModelGLTF.accessors[Primitive.attributes.at("TEXCOORD_0")];
+                const tinygltf::BufferView& BufferViewTex = m_ModelGLTF.bufferViews[AccessorTex.bufferView];
+                const tinygltf::Buffer& BufferTex = m_ModelGLTF.buffers[BufferViewTex.buffer];
 
-                assert(BufferViewPos.byteLength == BufferViewNor.byteLength);
+                assert(AccessorPos.count == AccessorNor.count && AccessorNor.count == AccessorTex.count);
 
-                const int Vec3Byte = 12;
-                for (std::size_t i = BufferViewPos.byteOffset, k = BufferViewNor.byteOffset;
-                    (i < BufferViewPos.byteOffset + BufferViewPos.byteLength && k < BufferViewNor.byteOffset + BufferViewNor.byteLength);
-                    i += Vec3Byte, k += Vec3Byte)
+                const int Vec3Byte = 12, Vec2Byte = 8;
+                int PosOffset = BufferViewPos.byteOffset;
+                int NorOffset = BufferViewNor.byteOffset;
+                int TexOffset = BufferViewTex.byteOffset;
+
+                for (std::size_t i = 0;i < AccessorPos.count;i++)
                 {
-                    __createVertexBufferData(m_Vertices, BufferPos, (int)i);
-                    __createVertexBufferData(m_Vertices, BufferNor, (int)k);
+                    __createVertexBufferData(m_Vertices, BufferPos, PosOffset, Vec3Byte);
+                    __createVertexBufferData(m_Vertices, BufferNor, NorOffset, Vec3Byte);
+                    __createVertexBufferData(m_Vertices, BufferTex, TexOffset, Vec2Byte);
+                    PosOffset += Vec3Byte;
+                    NorOffset += Vec3Byte;
+                    TexOffset += Vec2Byte;
                 }
                 std::cout << "Vertices.size : " << m_Vertices.size() << std::endl;
-                assert(m_Vertices.size() == m_ModelGLTF.accessors[Primitive.attributes.at("POSITION")].count * 6);
+                assert(m_Vertices.size() == AccessorPos.count * m_PerVertDataFloatNum);
+
+                
             }
         }
     }

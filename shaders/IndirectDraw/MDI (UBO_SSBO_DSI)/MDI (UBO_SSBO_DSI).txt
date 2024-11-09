@@ -226,7 +226,7 @@ int main() {
     AllModels.push_back(CubeModel);
     AllModels.push_back(DragonModel);
 
-    CShader TotalShader("./shaders/MultiDrawIndirect.vert", "shaders/MultiDrawIndirect.frag");
+    CShader TotalShader("./shaders/MultiDrawIndirect.vs", "shaders/MultiDrawIndirect.fs");
 
     const int TotalShaderStorageBinding = 0;
     GLuint ModelsSSBO;
