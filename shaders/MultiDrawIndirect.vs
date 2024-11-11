@@ -1,5 +1,4 @@
 #version 460 core
-
 in layout (location = 0) vec3 iPos;
 in layout (location = 1) vec3 iNor;
 

@@ -16,7 +16,6 @@ out vec3 voNormal;
 out vec2 voTexcoord;
 out vec3 voFragPos;
 
-
 void main()
 {
     voFragPos   = vec3(model * vec4(iPos, 1.0));

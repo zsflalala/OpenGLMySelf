@@ -1,495 +1,240 @@
-/*
-  reference : https://ktstephano.github.io/rendering/opengl/mdi
-*/
-
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 #include <iostream>
-#include <format>
-#include <stb_image.h>
-#include <vector>
-#include "camera.h"
-#include "DragonGLTFModel.h"
 #include "shader.h"
 
-#define _FORMAT_STR1(s, aug1) std::format(s, aug1)
-#define _FORMAT_STR2(s, aug1, aug2) std::format(s, (aug1), (aug2))
-#define _LOG_INFO(prompt) std::cout << prompt << std::endl
+// 窗口大小
+const unsigned int SCR_WIDTH = 800;
+const unsigned int SCR_HEIGHT = 600;
 
-struct SDrawArraysIndirectCommand 
+void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+void processInput(GLFWwindow* window);
+void RenderQuad(CShader& vShader);
+void RenderScene(CShader& vShader);
+
+int main()
 {
-    GLuint _Count;
-    GLuint _InstanceCount;
-    GLuint _FirstIndex;
-    GLuint _BaseVertex;
-    GLuint _BaseInstance;
-};
+    // 初始化GLFW
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-CCamera Camera(glm::vec3(0.0f, 0.0f, 30.0f));
-float DeltaTime = 0.0f;
-float LastFrame = 0.0f;
-bool FirstMouse = true;
-float Yaw = -90.0f;
-float Pitch = 0.0f;
-float LastX = 800.0f / 2.0;
-float LastY = 600.0 / 2.0;
-float Fov = 45.0f;
-
-void framebufferSizeCallback(GLFWwindow* vWindow, int vWidth, int vHeight)
-{
-    glViewport(0, 0, vWidth, vHeight);
-}
-
-void processInput(GLFWwindow* vWindow)
-{
-    if (glfwGetKey(vWindow, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(vWindow, true);
-
-    float CameraSpeed = static_cast<float>(2.5 * DeltaTime);
-    if (glfwGetKey(vWindow, GLFW_KEY_W) == GLFW_PRESS)
-        Camera.ProcessKeyboard(FORWARD, DeltaTime);
-    if (glfwGetKey(vWindow, GLFW_KEY_S) == GLFW_PRESS)
-        Camera.ProcessKeyboard(BACKWARD, DeltaTime);
-    if (glfwGetKey(vWindow, GLFW_KEY_A) == GLFW_PRESS)
-        Camera.ProcessKeyboard(LEFT, DeltaTime);
-    if (glfwGetKey(vWindow, GLFW_KEY_D) == GLFW_PRESS)
-        Camera.ProcessKeyboard(RIGHT, DeltaTime);
-    if (glfwGetKey(vWindow, GLFW_KEY_SPACE) == GLFW_PRESS)
-        Camera.ProcessKeyboard(UP, DeltaTime);
-    if (glfwGetKey(vWindow, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS)
-        Camera.ProcessKeyboard(DONE, DeltaTime);
-}
-
-void mouseCallback(GLFWwindow* vWindow, double vPosX, double vPosY)
-{
-    float PosX = static_cast<float>(vPosX);
-    float PosY = static_cast<float>(vPosY);
-
-    if (FirstMouse)
+    // 创建窗口
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Deferred Rendering", NULL, NULL);
+    if (window == NULL)
     {
-        LastX = PosX;
-        LastY = PosY;
-        FirstMouse = false;
-    }
-
-    float OffsetX = PosX - LastX;
-    float OffsetY = LastY - PosY; // reversed since y-coordinates go from bottom to top
-    LastX = PosX;
-    LastY = PosY;
-
-    Camera.ProcessMouseMovement(OffsetX, OffsetY);
-}
-
-void scrollCallback(GLFWwindow* vWindow, double vOffsetX, double vOffsetY)
-{
-    Camera.ProcessMouseScroll(static_cast<float>(vOffsetY));
-}
-
-unsigned int loadTexture(char const* vPath)
-{
-    unsigned int TextureID = 0;
-    int Width, Height, Channels;
-    unsigned char* pImageData = stbi_load(vPath, &Width, &Height, &Channels, 0);
-    if (!pImageData)
-    {
-        _LOG_INFO(_FORMAT_STR1("Texture failed to load at path : {}", vPath));
-    }
-    else
-    {
-        GLenum InternalFormat = GL_RGB;
-        if (Channels == 1)
-            InternalFormat = GL_RED;
-        else if (Channels == 3)
-            InternalFormat = GL_RGB;
-        else if (Channels == 4)
-            InternalFormat = GL_RGBA;
-
-        glCreateTextures(GL_TEXTURE_2D, 1, &TextureID);
-        glTextureStorage2D(TextureID, 1, GL_RGB8, Width, Height);
-        glTextureSubImage2D(TextureID, 0, 0, 0, Width, Height, InternalFormat, GL_UNSIGNED_BYTE, pImageData);
-        glTextureParameteri(TextureID, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTextureParameteri(TextureID, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTextureParameteri(TextureID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTextureParameteri(TextureID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glGenerateTextureMipmap(TextureID);
-    }
-    stbi_image_free(pImageData);
-    return TextureID;
-}
-
-unsigned int loadCubeMap(std::vector<std::string> vCubeMapPaths)
-{
-    unsigned int TextureID = 0;
-    glCreateTextures(GL_TEXTURE_CUBE_MAP, 1, &TextureID);
-    int Width, Height, Channels;
-    for (unsigned int i = 0; i < vCubeMapPaths.size(); i++)
-    {
-        unsigned char* pImageData = stbi_load(vCubeMapPaths[i].c_str(), &Width, &Height, &Channels, 0);
-        if (pImageData)
-        {
-            glTextureStorage2D(TextureID, 1, GL_RGB8, Width, Height);
-            glTextureSubImage3D(TextureID, 0, 0, 0, i, Width, Height, 1, GL_RGB, GL_UNSIGNED_BYTE, pImageData);
-        }
-        else
-        {
-            _LOG_INFO(_FORMAT_STR1("Cubemap texture failed to load at path : {}", vCubeMapPaths[i]));
-        }
-        stbi_image_free(pImageData);
-    }
-
-    glTextureParameteri(TextureID, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(TextureID, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(TextureID, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(TextureID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTextureParameteri(TextureID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    return TextureID;
-}
-
-int main() 
-{
-    if (!glfwInit()) return -1;
-
-    GLFWwindow* pWindow = glfwCreateWindow(800, 600, "OpenGL IndirectDraw Demo", NULL, NULL);
-    if (!pWindow)
-    {
+        std::cerr << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
         return -1;
     }
+    glfwMakeContextCurrent(window);
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-    glfwMakeContextCurrent(pWindow);
-    glfwSetCursorPosCallback(pWindow, mouseCallback);
-    glfwSetScrollCallback(pWindow, scrollCallback);
-    glfwSetInputMode(pWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) return -1;
-
-    int WindowWidth, WindowHeight;
-    glfwGetFramebufferSize(pWindow, &WindowWidth, &WindowHeight);
-    glViewport(0, 0, WindowWidth, WindowHeight);
-    glfwSetFramebufferSizeCallback(pWindow, framebufferSizeCallback);
-
-    const std::vector<float> SkyBoxVertices = {
-        -1.0f,  1.0f, -1.0f,
-        -1.0f, -1.0f, -1.0f,
-         1.0f, -1.0f, -1.0f,
-         1.0f, -1.0f, -1.0f,
-         1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f, -1.0f,
-
-        -1.0f, -1.0f,  1.0f,
-        -1.0f, -1.0f, -1.0f,
-        -1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f,  1.0f,
-        -1.0f, -1.0f,  1.0f,
-
-         1.0f, -1.0f, -1.0f,
-         1.0f, -1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f, -1.0f,
-         1.0f, -1.0f, -1.0f,
-
-        -1.0f, -1.0f,  1.0f,
-        -1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f, -1.0f,  1.0f,
-        -1.0f, -1.0f,  1.0f,
-
-        -1.0f,  1.0f, -1.0f,
-         1.0f,  1.0f, -1.0f,
-         1.0f,  1.0f,  1.0f,
-         1.0f,  1.0f,  1.0f,
-        -1.0f,  1.0f,  1.0f,
-        -1.0f,  1.0f, -1.0f,
-
-        -1.0f, -1.0f, -1.0f,
-        -1.0f, -1.0f,  1.0f,
-         1.0f, -1.0f, -1.0f,
-         1.0f, -1.0f, -1.0f,
-        -1.0f, -1.0f,  1.0f,
-         1.0f, -1.0f,  1.0f
-    };
-
-    std::vector<std::string> SkyBoxPaths = {
-        "./textures/skybox/right.jpg",
-        "./textures/skybox/left.jpg",
-        "./textures/skybox/top.jpg",
-        "./textures/skybox/bottom.jpg",
-        "./textures/skybox/front.jpg",
-        "./textures/skybox/back.jpg"
-    };
-
-    unsigned int SkyBoxVAO, SkyBoxVBO;
-    glCreateVertexArrays(1, &SkyBoxVAO);
-    glCreateBuffers(1, &SkyBoxVBO);
-    glNamedBufferStorage(SkyBoxVBO, SkyBoxVertices.size() * sizeof(float), SkyBoxVertices.data(), GL_DYNAMIC_STORAGE_BIT);
-    glVertexArrayVertexBuffer(SkyBoxVAO, 0, SkyBoxVBO, 0, 3 * sizeof(float));
-    glEnableVertexArrayAttrib(SkyBoxVAO, 0);
-    glVertexArrayAttribFormat(SkyBoxVAO, 0, 3, GL_FLOAT, GL_FALSE, 0 * sizeof(float));
-    glVertexArrayAttribBinding(SkyBoxVAO, 0, 0);
-
-    CShader SkyBoxShader("./shaders/SkyBox.vs", "./shaders/SkyBox.fs");
-    unsigned int SkyBoxTexture = loadCubeMap(SkyBoxPaths);
-    SkyBoxShader.use();
-    SkyBoxShader.setInt("skyBox", 0);
-
-    CDragonGLTFModel DragonGLTFModel("./models/dragon.gltf");
-    DragonGLTFModel.initModel();
-    const std::vector<float>         DragonVertices  = DragonGLTFModel.getVerticesVector();
-    const std::vector<unsigned int>  DragonIndices   = DragonGLTFModel.getIndicesVector();
-    const std::vector<unsigned char> DragonImageData = DragonGLTFModel.getImageVector();
-    const int                        DragonPerVertFloatNum = DragonGLTFModel.getPerVectFloatNum();
-    const int                        DragonImageWidth      = DragonGLTFModel.getImageWidth();
-    const int                        DragonImageHeight     = DragonGLTFModel.getImageHeight();
-
-    unsigned int DragonVAO, DragonVBO, DragonEBO;
-    glCreateVertexArrays(1, &DragonVAO);
-    glCreateBuffers(1, &DragonVBO);
-    glNamedBufferStorage(DragonVBO, DragonVertices.size() * sizeof(float), DragonVertices.data(), GL_DYNAMIC_STORAGE_BIT);
-    glCreateBuffers(1, &DragonEBO);
-    glNamedBufferStorage(DragonEBO, DragonIndices.size() * sizeof(unsigned int), DragonIndices.data(), GL_DYNAMIC_STORAGE_BIT);
-    glVertexArrayVertexBuffer(DragonVAO, 0, DragonVBO, 0, DragonPerVertFloatNum * sizeof(float));
-    glVertexArrayElementBuffer(DragonVAO, DragonEBO);
-    glEnableVertexArrayAttrib(DragonVAO, 0);
-    glEnableVertexArrayAttrib(DragonVAO, 1);
-    glEnableVertexArrayAttrib(DragonVAO, 2);
-    glVertexArrayAttribFormat(DragonVAO, 0, 3, GL_FLOAT, GL_FALSE, 0 * sizeof(float));
-    glVertexArrayAttribFormat(DragonVAO, 1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float));
-    glVertexArrayAttribFormat(DragonVAO, 2, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(float));
-    glVertexArrayAttribBinding(DragonVAO, 0, 0);
-    glVertexArrayAttribBinding(DragonVAO, 1, 0);
-    glVertexArrayAttribBinding(DragonVAO, 2, 0);
-
-    CShader DragonShader("./shaders/DragonRegularDraw.vs", "./shaders/DragonRegularDraw.fs");
-    unsigned int DragonTexture;
-    glCreateTextures(GL_TEXTURE_2D, 1, &DragonTexture);
-    glTextureStorage2D(DragonTexture, 1, GL_RGBA8, DragonImageWidth, DragonImageHeight);
-    glTextureSubImage2D(DragonTexture, 0, 0, 0, DragonImageWidth, DragonImageHeight, GL_RGBA, GL_UNSIGNED_BYTE, DragonImageData.data());
-    glTextureParameteri(DragonTexture, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTextureParameteri(DragonTexture, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTextureParameteri(DragonTexture, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTextureParameteri(DragonTexture, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glGenerateTextureMipmap(DragonTexture);
-
-    DragonShader.use();
-    DragonShader.setInt("dragonTexture", 0);
-
-    const std::vector<float> TriangleVertices = {
-     0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 1.0f,
-    -0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 1.0f,
-    -0.5f,  0.5f, 0.0f,   0.0f, 1.0f, 1.0f
-    };
-
-    const std::vector<unsigned int> TriangleIndices = {
-        0, 1, 2
-    };
-
-    const std::vector<float> CubeVertices = {
-        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, -1.0f,
-         0.5f, -0.5f, -0.5f,  0.0f, 0.0f, -1.0f,
-         0.5f,  0.5f, -0.5f,  0.0f, 0.0f, -1.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f, 0.0f, -1.0f,
-
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,  1.0f,
-         0.5f, -0.5f,  0.5f,  0.0f, 0.0f,  1.0f,
-         0.5f,  0.5f,  0.5f,  0.0f, 0.0f,  1.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,  1.0f,
-
-        -0.5f, -0.5f, -0.5f,  -1.0f, 0.0f, 0.0f,
-        -0.5f, -0.5f,  0.5f,  -1.0f, 0.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f,  -1.0f, 0.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f,  -1.0f, 0.0f, 0.0f,
-
-         0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 0.0f, 0.0f,
-
-        -0.5f,  0.5f,  0.5f,  0.0f, 1.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  0.0f, 1.0f, 0.0f,
-         0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
-
-        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f, 0.0f,
-         0.5f, -0.5f, -0.5f,  0.0f, -1.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  0.0f, -1.0f, 0.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, -1.0f, 0.0f
-    };
-
-    const std::vector<unsigned int> CubeIndices = {
-        0, 1, 2,
-        0, 2, 3,
-
-        4, 5, 6,
-        4, 6, 7,
-
-        8, 9, 10,
-        8, 10, 11,
-
-        12, 13, 14,
-        12, 14, 15,
-
-        16, 17, 18,
-        16, 18, 19,
-
-        20, 21, 22,
-        20, 22, 23
-    };
-
-    const int DrawNum = 40000;
-    std::vector<float>                     TotalVertieces;
-    std::vector<unsigned int>              TotalIndices;
-    std::vector<std::vector<float>>        VertexData;
-    std::vector<std::vector<unsigned int>> IndexData;
-
-    VertexData.push_back(CubeVertices);
-    VertexData.push_back(TriangleVertices);
-    IndexData.push_back(CubeIndices);
-    IndexData.push_back(TriangleIndices);
-    
-   for(size_t i = 0; i < DrawNum; i++)
-   {
-        TotalVertieces.insert(TotalVertieces.end(), VertexData[i % 2].begin(), VertexData[i % 2].end());
-        TotalIndices.insert(TotalIndices.end(), IndexData[i % 2].begin(), IndexData[i % 2].end());
-   }
-
-    unsigned int TotalVAO, TotalVBO, TotalEBO;
-    glCreateVertexArrays(1, &TotalVAO);
-    glCreateBuffers(1, &TotalVBO);
-    glNamedBufferStorage(TotalVBO, TotalVertieces.size() * sizeof(float), TotalVertieces.data(), GL_DYNAMIC_STORAGE_BIT);
-    glCreateBuffers(1, &TotalEBO);
-    glNamedBufferStorage(TotalEBO, TotalIndices.size() * sizeof(float), TotalIndices.data(), GL_DYNAMIC_STORAGE_BIT);
-    glVertexArrayVertexBuffer(TotalVAO, 0, TotalVBO, 0, 6 * sizeof(float));
-    glVertexArrayElementBuffer(TotalVAO, TotalEBO);
-    glEnableVertexArrayAttrib(TotalVAO, 0);
-    glEnableVertexArrayAttrib(TotalVAO, 1);
-    glVertexArrayAttribFormat(TotalVAO, 0, 3, GL_FLOAT, GL_FALSE, 0 * sizeof(float));
-    glVertexArrayAttribFormat(TotalVAO, 1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float));
-    glVertexArrayAttribBinding(TotalVAO, 0, 0);
-    glVertexArrayAttribBinding(TotalVAO, 1, 0);
-
-    const int PerVetexDataNumFloat = 6;
-    int FirstIndex = 0, BaseVertex = 0;
-    SDrawArraysIndirectCommand DrawCommand[DrawNum];
-    for (size_t i = 0; i < DrawNum; i++)
+    // 初始化GLAD
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
-        DrawCommand[i]._Count = IndexData[i % 2].size();
-        DrawCommand[i]._InstanceCount = 1;
-        DrawCommand[i]._FirstIndex = FirstIndex;
-        DrawCommand[i]._BaseVertex = BaseVertex;
-        DrawCommand[i]._BaseInstance = 0;
-        FirstIndex += IndexData[i % 2].size();
-        BaseVertex += VertexData[i % 2].size() / PerVetexDataNumFloat;
+        std::cerr << "Failed to initialize GLAD" << std::endl;
+        return -1;
     }
 
-    const glm::mat4 CubeModel     = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
-    const glm::mat4 TriangleModel = glm::translate(glm::mat4(1.0f), glm::vec3(-2.0f, 0.0f, 0.0f));
-    const glm::mat4 DragonModel   = glm::translate(glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)), glm::vec3(-2.0f, -5.0f, 0.0f));
+    // 编译和加载着色器
+    CShader geometryShader("./shaders/DefferredShading/gbuffer.vs", "./shaders/DefferredShading/gbuffer.fs");
+    CShader lightingShader("./shaders/DefferredShading/lighting.vs", "./shaders/DefferredShading/lighting.fs");
 
-    std::vector<glm::mat4> AllModels;
-    for (size_t i = 0; i < DrawNum; i++)
+    glUniform1i(glGetUniformLocation(lightingShader.ID, "gPosition"), 0);
+    glUniform1i(glGetUniformLocation(lightingShader.ID, "gNormal"), 1);
+
+    // 设置G-Buffer
+    unsigned int gBuffer;
+    /*glGenFramebuffers(1, &gBuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);*/
+    glCreateFramebuffers(1, &gBuffer);
+    // 位置颜色缓冲
+
+    unsigned int gPosition;
+    /*glBindTexture(GL_TEXTURE_2D, gPosition);
+    glGenTextures(1, &gPosition);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);*/
+    glCreateTextures(GL_TEXTURE_2D, 1, &gPosition);
+    glTextureStorage2D(gPosition, 1, GL_RGB8, SCR_WIDTH, SCR_HEIGHT);
+    glNamedFramebufferTexture(gBuffer, GL_COLOR_ATTACHMENT0, gPosition, 0);
+
+    // 法线颜色缓冲
+    unsigned int gNormal;
+    /*glGenTextures(1, &gNormal);
+    glBindTexture(GL_TEXTURE_2D, gNormal);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gNormal, 0);*/
+    glCreateTextures(GL_TEXTURE_2D, 1, &gNormal);
+    glTextureStorage2D(gNormal, 1, GL_RGB8, SCR_WIDTH, SCR_HEIGHT);
+    glNamedFramebufferTexture(gBuffer, GL_COLOR_ATTACHMENT1, gNormal, 0);
+
+    // 告诉OpenGL我们将使用哪种颜色附件进行渲染
+    /*unsigned int attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+    glDrawBuffers(2, attachments);*/
+    unsigned int attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+    glNamedFramebufferDrawBuffers(gBuffer, 2, attachments);
+
+    // 深度纹理
+    unsigned int gDepth;
+    /*glGenTextures(1, &gDepth);
+    glBindTexture(GL_TEXTURE_2D, gDepth);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, gDepth, 0);*/
+    glCreateTextures(GL_TEXTURE_2D, 1, &gDepth);
+    glTextureStorage2D(gDepth, 1, GL_DEPTH_COMPONENT32F, SCR_WIDTH, SCR_HEIGHT);
+    glNamedFramebufferTexture(gBuffer, GL_DEPTH_ATTACHMENT, gDepth, 0);
+
+    // 检查帧缓冲是否完整
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
     {
-        glm::mat4 CubeOffsetModel     = glm::translate(CubeModel, glm::vec3((i + 1) *  1.0f, 0.0f, 0.0f));
-        glm::mat4 TriangleOffsetModel = glm::translate(CubeModel, glm::vec3((i + 1) * -1.0f, 0.0f, 0.0f));
-        if (i % 2 == 0)
-            AllModels.push_back(CubeOffsetModel);
-        else
-            AllModels.push_back(TriangleOffsetModel);
+        std::cerr << "Framebuffer not complete!" << std::endl;
     }
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    CShader TotalShader("./shaders/MultiDrawIndirect.vs", "shaders/MultiDrawIndirect.fs");
+    lightingShader.use();
+    lightingShader.setInt("gPosition", 0);
+    lightingShader.setInt("gNormal", 1);
 
-    const int TotalShaderStorageBinding = 0;
-    unsigned int ModelsSSBO;
-    glCreateBuffers(1, &ModelsSSBO);
-    glNamedBufferStorage(ModelsSSBO, static_cast<GLsizeiptr>(sizeof(glm::mat4)* AllModels.size()), AllModels.data(), GL_DYNAMIC_STORAGE_BIT);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, TotalShaderStorageBinding, ModelsSSBO);
-
-    // for every vertex shader, set uniform block binding.
-    const int TotalUniformBlockBinding = 1;
-    unsigned int MDIUniformBlockIndex = glGetUniformBlockIndex(TotalShader.ID, "Matrices");
-    TotalShader.setBlockBinding(MDIUniformBlockIndex, TotalUniformBlockBinding); // glUniformBlockBinding(ID, vUniformBlockIndex, vBindingIndex);
-    unsigned int DragonUniformBlockIndex = glGetUniformBlockIndex(DragonShader.ID, "Matrices");
-    DragonShader.setBlockBinding(DragonUniformBlockIndex, TotalUniformBlockBinding);
-
-    unsigned int UBOMatrices;
-    glCreateBuffers(1, &UBOMatrices);
-    glNamedBufferStorage(UBOMatrices, 2 * sizeof(glm::mat4), NULL, GL_DYNAMIC_STORAGE_BIT);
-    glBindBuffer(GL_UNIFORM_BUFFER, UBOMatrices);
-    glBindBufferRange(GL_UNIFORM_BUFFER, TotalUniformBlockBinding, UBOMatrices, 0, 2 * sizeof(glm::mat4));
-
-    const int SCR_WIDTH = 800;
-    const int SCR_HEIGHT = 600;
-    glBindBuffer(GL_UNIFORM_BUFFER, UBOMatrices);
-    glm::mat4 Projection = glm::perspective(glm::radians(Camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-    glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::mat4), glm::value_ptr(Projection));
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
-    unsigned int IndirectBuffer;
-    glCreateBuffers(1, &IndirectBuffer);
-    glNamedBufferStorage(IndirectBuffer, sizeof(SDrawArraysIndirectCommand) * DrawNum, DrawCommand, GL_DYNAMIC_STORAGE_BIT);
-    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, IndirectBuffer);
-
-    while (!glfwWindowShouldClose(pWindow))
+    // 主循环
+    while (!glfwWindowShouldClose(window))
     {
-        float CurrentFrame = static_cast<float>(glfwGetTime());
-        DeltaTime = CurrentFrame - LastFrame;
-        LastFrame = CurrentFrame;
-        processInput(pWindow);
+        // 输入处理
+        processInput(window);
 
-        glBindBuffer(GL_UNIFORM_BUFFER, UBOMatrices);
-        glm::mat4 View = Camera.GetViewMatrix();
-        glBufferSubData(GL_UNIFORM_BUFFER, sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(View));
-        glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        // 几何处理阶段
         glEnable(GL_DEPTH_TEST);
+        glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
+        glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+        glClearColor(0.3f, 0.3f, 0.3f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glClearColor(0.1f, 0.2f, 0.1f, 1.0f);
-        
-        TotalShader.use();
-        glBindVertexArray(TotalVAO);
-        glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr, DrawNum, 0);
+        geometryShader.use();
+        RenderScene(geometryShader);
 
-        DragonShader.use();
-        DragonShader.setMat4("model", DragonModel);
-        DragonShader.setVec3("viewPos", Camera.Position);
-        glBindVertexArray(DragonVAO);
-        glBindTextureUnit(0, DragonTexture);
-        glDrawElements(GL_TRIANGLES, DragonIndices.size(), GL_UNSIGNED_INT, 0);
+        // 光照处理阶段
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glDisable(GL_DEPTH_TEST);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        /*glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, gPosition);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, gNormal);*/
+        glBindTextureUnit(0, gPosition);
+        glBindTextureUnit(1, gNormal);
+        lightingShader.use();
+        RenderQuad(lightingShader);
 
-        //When drawing the skybox, we need to make it the last object rendered in the scene and disable depth writing. 
-        //We need to make sure that the skybox passes the depth test when the value is less than or equal to the depth buffer, not less than.
-        glDepthFunc(GL_LEQUAL);
-        SkyBoxShader.use();
-        glm::mat4 SkyBoxView = glm::mat4(glm::mat3(Camera.GetViewMatrix()));
-        SkyBoxShader.setMat4("skyBoxView", SkyBoxView);
-        SkyBoxShader.setMat4("skyBoxProjection", Projection);
-        glBindVertexArray(SkyBoxVAO);
-        glBindTextureUnit(0, SkyBoxTexture);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        glDepthFunc(GL_LESS);
-
-        glfwSwapBuffers(pWindow);
+        glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
-    glDeleteVertexArrays(1, &TotalVAO);
-    glDeleteBuffers(1, &TotalVBO);
-    glDeleteBuffers(1, &TotalEBO);
-    glDeleteBuffers(1, &ModelsSSBO);
-    glDeleteBuffers(1, &UBOMatrices);
-    glDeleteBuffers(1, &IndirectBuffer);
-    glDeleteVertexArrays(1, &DragonVAO);
-    glDeleteBuffers(1, &DragonVBO);
-    glDeleteBuffers(1, &DragonEBO);
-    glDeleteVertexArrays(1, &SkyBoxVAO);
-    glDeleteBuffers(1, &SkyBoxVBO);
+    // 清理资源
+    glDeleteFramebuffers(1, &gBuffer);
+    glDeleteTextures(1, &gPosition);
+    glDeleteTextures(1, &gNormal);
+    glDeleteTextures(1, &gDepth);
+
     glfwTerminate();
     return 0;
+}
+
+// 处理输入
+void processInput(GLFWwindow* window)
+{
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
+}
+
+// 当窗口大小改变时调用
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+    glViewport(0, 0, width, height);
+}
+
+// 渲染覆盖屏幕的四边形
+unsigned int quadVAO = 0;
+unsigned int quadVBO;
+void RenderQuad(CShader& vShader)
+{
+    if (quadVAO == 0)
+    {
+        GLfloat quadVertices[] = {
+            // Positions        // Texture Coords
+            -1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
+            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+            1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
+            1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+        };
+        // Setup plane VAO
+        glGenVertexArrays(1, &quadVAO);
+        glGenBuffers(1, &quadVBO);
+        glBindVertexArray(quadVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+    }
+    glm::vec3 CameraPos = glm::vec3(0.0f, 0.0f, -3.0f);
+    glm::vec3 CameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+    glm::vec3 CameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::mat4 ViewMat = glm::lookAt(CameraPos, CameraPos + CameraFront, CameraUp);
+    vShader.setMat4("viewPos", ViewMat);
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+}
+
+unsigned int TriangleVAO = 0;
+unsigned int TriangleVBO;
+void RenderScene(CShader& vShader)
+{
+    if (TriangleVAO == 0)
+    {
+        float vertices[] = {
+            // 位置           // 法线
+            0.0f,  0.5f, 0.0f,  0.0f,  0.0f,  1.0f,
+           -0.5f, -0.5f, 0.0f,  0.0f,  1.0f,  1.0f,
+            0.5f, -0.5f, 0.0f,  1.0f,  0.0f,  1.0f,
+        };
+
+        glGenVertexArrays(1, &TriangleVAO);
+        glBindVertexArray(TriangleVAO);
+
+        glGenBuffers(1, &TriangleVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, TriangleVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+        // Position attribute
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(0);
+        // Normal attribute
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+        glEnableVertexAttribArray(1);
+    }
+
+    glm::vec3 CameraPos = glm::vec3(0.0f, 0.0f, -2.0f);
+    glm::vec3 CameraFront = glm::vec3(0.0f, 0.0f, 1.0f);
+    glm::vec3 CameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::mat4 ProjectionMat = glm::perspective(glm::radians(45.0f), (GLfloat)SCR_WIDTH / (GLfloat)SCR_HEIGHT, 0.1f, 100.0f);
+    glm::mat4 ViewMat = glm::lookAt(CameraPos, CameraPos + CameraFront, CameraUp);
+    vShader.setMat4("projection", ProjectionMat);
+    vShader.setMat4("view", ViewMat);
+    glm::mat4 Model = glm::mat4(1.0f);
+    vShader.setMat4("model", Model);
+
+    glBindVertexArray(TriangleVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glBindVertexArray(0);
 }

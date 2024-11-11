@@ -1,9 +1,9 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <Shader.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
+#include "shader.h"
 
 // 窗口大小
 const unsigned int SCR_WIDTH = 800;
@@ -11,15 +11,15 @@ const unsigned int SCR_HEIGHT = 600;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
-void RenderQuad(Shader& vShader);
-void RenderScene(Shader& vShader);
+void RenderQuad(CShader& vShader);
+void RenderScene(CShader& vShader);
 
 int main()
 {
     // 初始化GLFW
     glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // 创建窗口
@@ -41,49 +41,59 @@ int main()
     }
 
     // 编译和加载着色器
-    CShader geometryShader("./shaders/gbuffer.vs", "./shaders/gbuffer.fs");
-    CShader lightingShader("./shaders/lighting.vs", "./shaders/lighting.fs");
+    CShader geometryShader("./shaders/DefferredShading/gbuffer.vs", "./shaders/DefferredShading/gbuffer.fs");
+    CShader lightingShader("./shaders/DefferredShading/lighting.vs", "./shaders/DefferredShading/lighting.fs");
 
     glUniform1i(glGetUniformLocation(lightingShader.ID, "gPosition"), 0);
     glUniform1i(glGetUniformLocation(lightingShader.ID, "gNormal"), 1);
 
     // 设置G-Buffer
     unsigned int gBuffer;
-    glGenFramebuffers(1, &gBuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
-
-
+    /*glGenFramebuffers(1, &gBuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);*/
+    glCreateFramebuffers(1, &gBuffer);
     // 位置颜色缓冲
+
     unsigned int gPosition;
+    /*glBindTexture(GL_TEXTURE_2D, gPosition);
     glGenTextures(1, &gPosition);
-    glBindTexture(GL_TEXTURE_2D, gPosition);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);*/
+    glCreateTextures(GL_TEXTURE_2D, 1, &gPosition);
+    glTextureStorage2D(gPosition, 1, GL_RGB8, SCR_WIDTH, SCR_HEIGHT);
+    glNamedFramebufferTexture(gBuffer, GL_COLOR_ATTACHMENT0, gPosition, 0);
 
     // 法线颜色缓冲
     unsigned int gNormal;
-    glGenTextures(1, &gNormal);
+    /*glGenTextures(1, &gNormal);
     glBindTexture(GL_TEXTURE_2D, gNormal);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gNormal, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gNormal, 0);*/
+    glCreateTextures(GL_TEXTURE_2D, 1, &gNormal);
+    glTextureStorage2D(gNormal, 1, GL_RGB8, SCR_WIDTH, SCR_HEIGHT);
+    glNamedFramebufferTexture(gBuffer, GL_COLOR_ATTACHMENT1, gNormal, 0);
 
     // 告诉OpenGL我们将使用哪种颜色附件进行渲染
+    /*unsigned int attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+    glDrawBuffers(2, attachments);*/
     unsigned int attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-    glDrawBuffers(2, attachments);
+    glNamedFramebufferDrawBuffers(gBuffer, 2, attachments);
 
     // 深度纹理
     unsigned int gDepth;
-    glGenTextures(1, &gDepth);
+    /*glGenTextures(1, &gDepth);
     glBindTexture(GL_TEXTURE_2D, gDepth);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, gDepth, 0);
-
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, gDepth, 0);*/
+    glCreateTextures(GL_TEXTURE_2D, 1, &gDepth);
+    glTextureStorage2D(gDepth, 1, GL_DEPTH_COMPONENT32F, SCR_WIDTH, SCR_HEIGHT);
+    glNamedFramebufferTexture(gBuffer, GL_DEPTH_ATTACHMENT, gDepth, 0);
 
     // 检查帧缓冲是否完整
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
@@ -115,10 +125,12 @@ int main()
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glDisable(GL_DEPTH_TEST);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glActiveTexture(GL_TEXTURE0);
+        /*glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, gPosition);
         glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, gNormal);
+        glBindTexture(GL_TEXTURE_2D, gNormal);*/
+        glBindTextureUnit(0, gPosition);
+        glBindTextureUnit(1, gNormal);
         lightingShader.use();
         RenderQuad(lightingShader);
 
@@ -152,7 +164,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 // 渲染覆盖屏幕的四边形
 unsigned int quadVAO = 0;
 unsigned int quadVBO;
-void RenderQuad(Shader& vShader)
+void RenderQuad(CShader& vShader)
 {
     if (quadVAO == 0)
     {
@@ -186,15 +198,15 @@ void RenderQuad(Shader& vShader)
 
 unsigned int TriangleVAO = 0;
 unsigned int TriangleVBO;
-void RenderScene(Shader& vShader)
+void RenderScene(CShader& vShader)
 {
     if (TriangleVAO == 0)
     {
         float vertices[] = {
             // 位置           // 法线
             0.0f,  0.5f, 0.0f,  0.0f,  0.0f,  1.0f,
-           -0.5f, -0.5f, 0.0f,  0.0f,  0.0f,  1.0f,
-            0.5f, -0.5f, 0.0f,  0.0f,  0.0f,  1.0f,
+           -0.5f, -0.5f, 0.0f,  0.0f,  1.0f,  1.0f,
+            0.5f, -0.5f, 0.0f,  1.0f,  0.0f,  1.0f,
         };
 
         glGenVertexArrays(1, &TriangleVAO);
