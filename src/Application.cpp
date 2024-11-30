@@ -1,240 +1,342 @@
+#include <iostream>
+#include <utility>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <iostream>
-#include "shader.h"
+#include <stb_image.h>
 
-// 窗口大小
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
+const char* pSnowVertexShaderSource = R"(
+    #version 330 core
+    layout (location = 0) in vec2 aPos;
+    layout (location = 1) in vec2 aTexCoord;
 
-void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void processInput(GLFWwindow* window);
-void RenderQuad(CShader& vShader);
-void RenderScene(CShader& vShader);
+    out vec2 TexCoord;
+
+    void main() 
+    {
+        gl_Position = vec4(aPos, 0.0, 1.0);
+        TexCoord = aTexCoord;
+    }
+)";
+
+const char* pSnowFragmentShaderSource = R"(
+    #version 330 core
+    out vec4 FragColor;
+
+    in vec2 TexCoord;
+    uniform vec2 uvOffset;
+    uniform vec2 uvScale; 
+    uniform sampler2D snowTexture;
+
+    void main()
+    {
+        vec2 TexCoords = (TexCoord * uvScale) + uvOffset; // 动态调整UV
+        vec4 SnowColor = texture(snowTexture, TexCoords);
+        FragColor = SnowColor;
+    }
+)";
+
+const char* pQuadVertexShaderSource = R"(
+    #version 330 core
+    layout (location = 0) in vec2 aPos;
+    layout (location = 1) in vec2 aTexCoord;
+
+    out vec2 TexCoord;
+
+    void main() 
+    {
+        gl_Position = vec4(aPos, 0.0, 1.0);
+        TexCoord = aTexCoord;
+    }
+)";
+
+const char* pQuadFragmentShaderSource = R"(
+    #version 330 core
+    out vec4 FragColor;
+
+    in vec2 TexCoord;
+    uniform sampler2D quadTexture;
+
+    void main()
+    {
+        vec4 CartoonColor = texture(quadTexture, TexCoord);
+        FragColor = CartoonColor;
+    }
+)";
+
+GLuint compileShader(GLenum vType, const char* vSource) 
+{
+    GLuint Shader = glCreateShader(vType);
+    glShaderSource(Shader, 1, &vSource, NULL);
+    glCompileShader(Shader);
+
+    int Success;
+    char pInfoLog[512];
+    glGetShaderiv(Shader, GL_COMPILE_STATUS, &Success);
+    if (!Success) 
+    {
+        glGetShaderInfoLog(Shader, 512, NULL, pInfoLog);
+        std::cerr << "Error: Shader compilation failed\n" << pInfoLog << std::endl;
+    }
+    return Shader;
+}
+
+GLuint loadTexture(const char* vPath)
+{
+    GLuint TextureID = 0;
+    int Width, Height, Channels;
+    stbi_set_flip_vertically_on_load(1);
+    unsigned char* pData = stbi_load(vPath, &Width, &Height, &Channels, 0);
+    std::cout << vPath << " width: " << Width << " height: " << Height << " Channels: " << Channels << std::endl;
+    if (pData)
+    {
+        GLenum Format = GL_RGB;
+        if (Channels == 1)
+            Format = GL_RED;
+        else if (Channels == 3)
+            Format = GL_RGB;
+        else if (Channels == 4)
+            Format = GL_RGBA;
+
+        glGenTextures(1, &TextureID);
+        glBindTexture(GL_TEXTURE_2D, TextureID);
+        glTexImage2D(GL_TEXTURE_2D, 0, Format, Width, Height, 0, Format, GL_UNSIGNED_BYTE, pData);
+        glGenerateMipmap(GL_TEXTURE_2D);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    }
+    else
+    {
+        std::cout << "Texture failed to load at path: " << vPath << std::endl;
+    }
+    stbi_image_free(pData);
+    return TextureID;
+}
+
+GLuint linkProgram(GLuint vVertShaderHandle, GLuint vFragShaderHandle)
+{
+    GLuint ProgramHandle = glCreateProgram();
+    if (ProgramHandle != 0)
+    {
+        glAttachShader(ProgramHandle, vVertShaderHandle);
+        glAttachShader(ProgramHandle, vFragShaderHandle);
+        glLinkProgram(ProgramHandle);
+        GLint Result = GL_FALSE;
+        glGetProgramiv(ProgramHandle, GL_LINK_STATUS, &Result);
+        if (Result == GL_FALSE)
+        {
+            glDeleteProgram(ProgramHandle);
+            return 0;
+        }
+        return ProgramHandle;
+    }
+    glDeleteShader(vVertShaderHandle);
+    glDeleteShader(vFragShaderHandle);
+    return 0;
+}
+
+bool g_EnableFarSnow    = true;
+bool g_EnableNearSnow   = true;
+bool g_EnableCartoon    = true;
+bool g_EnableBackground = true;
+float g_FarSnowSpeed    = 24.0f;
+float g_NearSnowSpeed   = 24.0f;
+
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+    constexpr float DeltaSpeed = 10.0f;
+    if (key == GLFW_KEY_Q && action == GLFW_PRESS)
+        g_EnableFarSnow = !g_EnableFarSnow;
+    if (key == GLFW_KEY_A && action == GLFW_PRESS)
+        g_EnableNearSnow = !g_EnableNearSnow;
+    if (key == GLFW_KEY_Z && action == GLFW_PRESS)
+        g_EnableCartoon  = !g_EnableCartoon;
+    if (key == GLFW_KEY_X && action == GLFW_PRESS)
+        g_EnableBackground = !g_EnableBackground;
+    if (key == GLFW_KEY_W && action == GLFW_PRESS)
+        g_FarSnowSpeed = std::max(1.0f, g_FarSnowSpeed - DeltaSpeed);
+    if (key == GLFW_KEY_E && action == GLFW_PRESS)
+        g_FarSnowSpeed = std::min(100.0f, g_FarSnowSpeed + DeltaSpeed);
+    if (key == GLFW_KEY_S && action == GLFW_PRESS)
+        g_NearSnowSpeed = std::max(1.0f, g_NearSnowSpeed - DeltaSpeed);
+    if (key == GLFW_KEY_D && action == GLFW_PRESS)
+        g_NearSnowSpeed = std::min(100.0f, g_NearSnowSpeed + DeltaSpeed);
+}
 
 int main()
 {
-    // 初始化GLFW
     glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    // 创建窗口
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Deferred Rendering", NULL, NULL);
-    if (window == NULL)
+    const int WindowWidth = 1600, WindowHeight = 900;
+    GLFWwindow* pWindow = glfwCreateWindow(WindowWidth, WindowHeight, "Sequence Frames", NULL, NULL);
+    if (!pWindow) 
     {
         std::cerr << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
         return -1;
     }
-    glfwMakeContextCurrent(window);
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-
-    // 初始化GLAD
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    glfwMakeContextCurrent(pWindow);
+    glfwSetKeyCallback(pWindow, keyCallback);
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) 
     {
         std::cerr << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
 
-    // 编译和加载着色器
-    CShader geometryShader("./shaders/DefferredShading/gbuffer.vs", "./shaders/DefferredShading/gbuffer.fs");
-    CShader lightingShader("./shaders/DefferredShading/lighting.vs", "./shaders/DefferredShading/lighting.fs");
+    GLuint NearSnowTextureHandle   = loadTexture("./Textures/nearSnow.png");
+    GLuint FarSnowTextureHandle    = loadTexture("./Textures/farSnow.png");
+    GLuint CartoonTextureHandle    = loadTexture("./Textures/house.png");
+    GLuint BackgroundTextureHandle = loadTexture("./Textures/background3.jpg");
 
-    glUniform1i(glGetUniformLocation(lightingShader.ID, "gPosition"), 0);
-    glUniform1i(glGetUniformLocation(lightingShader.ID, "gNormal"), 1);
+    GLuint NearSnowVertexShader   = compileShader(GL_VERTEX_SHADER, pSnowVertexShaderSource);
+    GLuint NearSnowFragmentShader = compileShader(GL_FRAGMENT_SHADER, pSnowFragmentShaderSource);
+    GLuint NearSnowShaderProgram  = linkProgram(NearSnowVertexShader, NearSnowFragmentShader);
 
-    // 设置G-Buffer
-    unsigned int gBuffer;
-    /*glGenFramebuffers(1, &gBuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);*/
-    glCreateFramebuffers(1, &gBuffer);
-    // 位置颜色缓冲
+    GLuint CartoonVertexShader   = compileShader(GL_VERTEX_SHADER, pQuadVertexShaderSource);
+    GLuint CartoonFragmentShader = compileShader(GL_FRAGMENT_SHADER, pQuadFragmentShaderSource);
+    GLuint CartoonShaderProgram  = linkProgram(CartoonVertexShader, CartoonFragmentShader);
 
-    unsigned int gPosition;
-    /*glBindTexture(GL_TEXTURE_2D, gPosition);
-    glGenTextures(1, &gPosition);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);*/
-    glCreateTextures(GL_TEXTURE_2D, 1, &gPosition);
-    glTextureStorage2D(gPosition, 1, GL_RGB8, SCR_WIDTH, SCR_HEIGHT);
-    glNamedFramebufferTexture(gBuffer, GL_COLOR_ATTACHMENT0, gPosition, 0);
+    GLuint BackgroundVertexShader   = compileShader(GL_VERTEX_SHADER, pQuadVertexShaderSource);
+    GLuint BackgroundFragmentShader = compileShader(GL_FRAGMENT_SHADER, pQuadFragmentShaderSource);
+    GLuint BackgroundShaderProgram  = linkProgram(BackgroundVertexShader, BackgroundFragmentShader);
 
-    // 法线颜色缓冲
-    unsigned int gNormal;
-    /*glGenTextures(1, &gNormal);
-    glBindTexture(GL_TEXTURE_2D, gNormal);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gNormal, 0);*/
-    glCreateTextures(GL_TEXTURE_2D, 1, &gNormal);
-    glTextureStorage2D(gNormal, 1, GL_RGB8, SCR_WIDTH, SCR_HEIGHT);
-    glNamedFramebufferTexture(gBuffer, GL_COLOR_ATTACHMENT1, gNormal, 0);
+    GLuint FarSnowVertexShader   = compileShader(GL_VERTEX_SHADER, pSnowVertexShaderSource);
+    GLuint FarSnowFragmentShader = compileShader(GL_FRAGMENT_SHADER, pSnowFragmentShaderSource);
+    GLuint FarSnowShaderProgram  = linkProgram(FarSnowVertexShader, FarSnowFragmentShader);
 
-    // 告诉OpenGL我们将使用哪种颜色附件进行渲染
-    /*unsigned int attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-    glDrawBuffers(2, attachments);*/
-    unsigned int attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
-    glNamedFramebufferDrawBuffers(gBuffer, 2, attachments);
+    const float pVertices[] = {
+        // positions   // texCoords
+        -1.0f, -1.0f,  0.0f, 0.0f, // bottom left
+         1.0f, -1.0f,  1.0f, 0.0f, // bottom right
+         1.0f,  1.0f,  1.0f, 1.0f, // top right
+        -1.0f,  1.0f,  0.0f, 1.0f  // top left
+    };
 
-    // 深度纹理
-    unsigned int gDepth;
-    /*glGenTextures(1, &gDepth);
-    glBindTexture(GL_TEXTURE_2D, gDepth);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, gDepth, 0);*/
-    glCreateTextures(GL_TEXTURE_2D, 1, &gDepth);
-    glTextureStorage2D(gDepth, 1, GL_DEPTH_COMPONENT32F, SCR_WIDTH, SCR_HEIGHT);
-    glNamedFramebufferTexture(gBuffer, GL_DEPTH_ATTACHMENT, gDepth, 0);
+    const unsigned int pIndices[] = {
+        0, 1, 2,
+        0, 2, 3
+    };
 
-    // 检查帧缓冲是否完整
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    GLuint QuadVAO, QuadVBO, QuadEBO;
+    glGenVertexArrays(1, &QuadVAO);
+    glBindVertexArray(QuadVAO);
+    glGenBuffers(1, &QuadVBO);
+    glGenBuffers(1, &QuadEBO);
+    glBindBuffer(GL_ARRAY_BUFFER, QuadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(pVertices), pVertices, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, QuadEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(pIndices), pIndices, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    double NearLastTime  = glfwGetTime();
+    double FarLastTime   = glfwGetTime(); 
+    int NearCurrentFrame = 0;
+    int FarCurrentFrame  = 0;
+    const int NearRows   = 8, NearCols = 16;
+    const int FarRows    = 8, FarCols  = 16;
+
+    while (!glfwWindowShouldClose(pWindow)) 
     {
-        std::cerr << "Framebuffer not complete!" << std::endl;
-    }
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        double CurrentTime = glfwGetTime();
 
-    lightingShader.use();
-    lightingShader.setInt("gPosition", 0);
-    lightingShader.setInt("gNormal", 1);
+        double NearFrameTime = 1.0 / g_NearSnowSpeed;
+        if (CurrentTime - NearLastTime >= NearFrameTime)
+        {
+            NearLastTime = CurrentTime;
+            NearCurrentFrame = (NearCurrentFrame + 1) % (NearRows * NearCols);
+        }
 
-    // 主循环
-    while (!glfwWindowShouldClose(window))
-    {
-        // 输入处理
-        processInput(window);
+        double FarFrameTime = 1.0 / g_FarSnowSpeed;
+        if (CurrentTime - FarLastTime >= FarFrameTime)
+        {
+            FarLastTime = CurrentTime;
+            FarCurrentFrame = (FarCurrentFrame + 1) % (FarRows * FarCols);
+        }
 
-        // 几何处理阶段
-        glEnable(GL_DEPTH_TEST);
-        glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
-        glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
-        glClearColor(0.3f, 0.3f, 0.3f, 0.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        geometryShader.use();
-        RenderScene(geometryShader);
+        glClearColor(0.3f, 0.2f, 0.3f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
 
-        // 光照处理阶段
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glDisable(GL_DEPTH_TEST);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        /*glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, gPosition);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, gNormal);*/
-        glBindTextureUnit(0, gPosition);
-        glBindTextureUnit(1, gNormal);
-        lightingShader.use();
-        RenderQuad(lightingShader);
+        if (g_EnableBackground)
+        {
+            glUseProgram(BackgroundShaderProgram);
+            glUniform1i(glGetUniformLocation(BackgroundShaderProgram, "quadTexture"), 0);
+            glBindVertexArray(QuadVAO);
+            glBindTexture(GL_TEXTURE_2D, BackgroundTextureHandle);
+            glActiveTexture(GL_TEXTURE0);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        }
+        
+        if (g_EnableFarSnow)
+        {
+            int  FarRow = FarCurrentFrame / FarCols;
+            int  FarCol = FarCurrentFrame % FarCols;
+            float FarU0 = FarCol / (float)FarCols;
+            float FarV0 = FarRow / (float)FarRows;
+            float FarU1 = (FarCol + 1) / (float)FarCols;
+            float FarV1 = (FarRow + 1) / (float)FarRows;
 
-        glfwSwapBuffers(window);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glUseProgram(FarSnowShaderProgram);
+            glUniform2f(glGetUniformLocation(FarSnowShaderProgram, "uvOffset"), FarU0, FarV0);
+            glUniform2f(glGetUniformLocation(FarSnowShaderProgram, "uvScale"),  FarU1 - FarU0, FarV1 - FarV0);
+            glBindVertexArray(QuadVAO);
+            glUniform1i(glGetUniformLocation(FarSnowShaderProgram, "snowTexture"), 0);
+            glBindTexture(GL_TEXTURE_2D, FarSnowTextureHandle);
+            glActiveTexture(GL_TEXTURE0);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        }
+
+        if (g_EnableCartoon)
+        {
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glUseProgram(CartoonShaderProgram);
+            glUniform1i(glGetUniformLocation(CartoonShaderProgram, "quadTexture"), 0);
+            glBindVertexArray(QuadVAO);
+            glBindTexture(GL_TEXTURE_2D, CartoonTextureHandle);
+            glActiveTexture(GL_TEXTURE0);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        }
+
+        if (g_EnableNearSnow)
+        {
+            int NearRow = NearCurrentFrame / NearCols;
+            int NearCol = NearCurrentFrame % NearCols;
+            float NearU0 = NearCol / (float)NearCols;
+            float NearV0 = NearRow / (float)NearRows;
+            float NearU1 = (NearCol + 1) / (float)NearCols;
+            float NearV1 = (NearRow + 1) / (float)NearRows;
+
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glUseProgram(NearSnowShaderProgram);
+            glUniform2f(glGetUniformLocation(NearSnowShaderProgram, "uvOffset"), NearU0, NearV0);
+            glUniform2f(glGetUniformLocation(NearSnowShaderProgram, "uvScale"), NearU1 - NearU0, NearV1 - NearV0);
+            glBindVertexArray(QuadVAO);
+            glUniform1i(glGetUniformLocation(NearSnowShaderProgram, "snowTexture"), 0);
+            glBindTexture(GL_TEXTURE_2D, NearSnowTextureHandle);
+            glActiveTexture(GL_TEXTURE0);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        }
+        
+        glfwSwapBuffers(pWindow);
         glfwPollEvents();
     }
 
-    // 清理资源
-    glDeleteFramebuffers(1, &gBuffer);
-    glDeleteTextures(1, &gPosition);
-    glDeleteTextures(1, &gNormal);
-    glDeleteTextures(1, &gDepth);
-
+    glDeleteVertexArrays(1, &QuadVAO);
+    glDeleteBuffers(1, &QuadVBO);
+    glDeleteBuffers(1, &QuadEBO);
+    glDeleteProgram(NearSnowShaderProgram);
+    glDeleteProgram(FarSnowShaderProgram);
+    glDeleteProgram(CartoonShaderProgram);
+    glDeleteProgram(BackgroundShaderProgram);
     glfwTerminate();
     return 0;
-}
-
-// 处理输入
-void processInput(GLFWwindow* window)
-{
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
-}
-
-// 当窗口大小改变时调用
-void framebuffer_size_callback(GLFWwindow* window, int width, int height)
-{
-    glViewport(0, 0, width, height);
-}
-
-// 渲染覆盖屏幕的四边形
-unsigned int quadVAO = 0;
-unsigned int quadVBO;
-void RenderQuad(CShader& vShader)
-{
-    if (quadVAO == 0)
-    {
-        GLfloat quadVertices[] = {
-            // Positions        // Texture Coords
-            -1.0f, 1.0f, 0.0f, 0.0f, 1.0f,
-            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
-            1.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-            1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
-        };
-        // Setup plane VAO
-        glGenVertexArrays(1, &quadVAO);
-        glGenBuffers(1, &quadVBO);
-        glBindVertexArray(quadVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)0);
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
-    }
-    glm::vec3 CameraPos = glm::vec3(0.0f, 0.0f, -3.0f);
-    glm::vec3 CameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
-    glm::vec3 CameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
-    glm::mat4 ViewMat = glm::lookAt(CameraPos, CameraPos + CameraFront, CameraUp);
-    vShader.setMat4("viewPos", ViewMat);
-    glBindVertexArray(quadVAO);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    glBindVertexArray(0);
-}
-
-unsigned int TriangleVAO = 0;
-unsigned int TriangleVBO;
-void RenderScene(CShader& vShader)
-{
-    if (TriangleVAO == 0)
-    {
-        float vertices[] = {
-            // 位置           // 法线
-            0.0f,  0.5f, 0.0f,  0.0f,  0.0f,  1.0f,
-           -0.5f, -0.5f, 0.0f,  0.0f,  1.0f,  1.0f,
-            0.5f, -0.5f, 0.0f,  1.0f,  0.0f,  1.0f,
-        };
-
-        glGenVertexArrays(1, &TriangleVAO);
-        glBindVertexArray(TriangleVAO);
-
-        glGenBuffers(1, &TriangleVBO);
-        glBindBuffer(GL_ARRAY_BUFFER, TriangleVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-        // Position attribute
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
-        // Normal attribute
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-        glEnableVertexAttribArray(1);
-    }
-
-    glm::vec3 CameraPos = glm::vec3(0.0f, 0.0f, -2.0f);
-    glm::vec3 CameraFront = glm::vec3(0.0f, 0.0f, 1.0f);
-    glm::vec3 CameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
-    glm::mat4 ProjectionMat = glm::perspective(glm::radians(45.0f), (GLfloat)SCR_WIDTH / (GLfloat)SCR_HEIGHT, 0.1f, 100.0f);
-    glm::mat4 ViewMat = glm::lookAt(CameraPos, CameraPos + CameraFront, CameraUp);
-    vShader.setMat4("projection", ProjectionMat);
-    vShader.setMat4("view", ViewMat);
-    glm::mat4 Model = glm::mat4(1.0f);
-    vShader.setMat4("model", Model);
-
-    glBindVertexArray(TriangleVAO);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-    glBindVertexArray(0);
 }

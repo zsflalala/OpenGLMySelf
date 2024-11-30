@@ -19,6 +19,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Idea_Validation002 (Dynamic
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Idea_Validation003 (DSA)", "IdeaValidation\MordenGLDSA\Idea_Validation003.vcxproj", "{DA1CFBC5-9829-43CC-838F-29512E3568F4}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ParticlesDemo", "IdeaValidation\ParticlesDemo\ParticlesDemo.vcxproj", "{9191BCC9-EA64-4F19-B605-33269E5AEB4B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -75,6 +77,14 @@ Global
 		{DA1CFBC5-9829-43CC-838F-29512E3568F4}.Release|x64.Build.0 = Release|x64
 		{DA1CFBC5-9829-43CC-838F-29512E3568F4}.Release|x86.ActiveCfg = Release|Win32
 		{DA1CFBC5-9829-43CC-838F-29512E3568F4}.Release|x86.Build.0 = Release|Win32
+		{9191BCC9-EA64-4F19-B605-33269E5AEB4B}.Debug|x64.ActiveCfg = Debug|x64
+		{9191BCC9-EA64-4F19-B605-33269E5AEB4B}.Debug|x64.Build.0 = Debug|x64
+		{9191BCC9-EA64-4F19-B605-33269E5AEB4B}.Debug|x86.ActiveCfg = Debug|Win32
+		{9191BCC9-EA64-4F19-B605-33269E5AEB4B}.Debug|x86.Build.0 = Debug|Win32
+		{9191BCC9-EA64-4F19-B605-33269E5AEB4B}.Release|x64.ActiveCfg = Release|x64
+		{9191BCC9-EA64-4F19-B605-33269E5AEB4B}.Release|x64.Build.0 = Release|x64
+		{9191BCC9-EA64-4F19-B605-33269E5AEB4B}.Release|x86.ActiveCfg = Release|Win32
+		{9191BCC9-EA64-4F19-B605-33269E5AEB4B}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -85,6 +95,7 @@ Global
 		{6B52C864-F3DA-48A5-9CFD-0742C189BBE7} = {5885EF7C-64C4-4CD2-8310-D0E2378DA7E9}
 		{F779B7A4-F6CA-4511-A56B-8747D458EE14} = {5885EF7C-64C4-4CD2-8310-D0E2378DA7E9}
 		{DA1CFBC5-9829-43CC-838F-29512E3568F4} = {5885EF7C-64C4-4CD2-8310-D0E2378DA7E9}
+		{9191BCC9-EA64-4F19-B605-33269E5AEB4B} = {5885EF7C-64C4-4CD2-8310-D0E2378DA7E9}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E9CA0966-C082-49FC-A89D-482CD473D339}
