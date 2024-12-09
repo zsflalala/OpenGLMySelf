@@ -162,6 +162,7 @@
     <ClCompile Include="src\DragonGLTFModel.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="src\Application.cpp" />
+    <ClCompile Include="TextureSequencePlayer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitattributes" />
@@ -172,6 +173,7 @@
     <ClInclude Include="src\DragonGLTFModel.h" />
     <ClInclude Include="src\camera.h" />
     <ClInclude Include="src\shader.h" />
+    <ClInclude Include="TextureSequencePlayer.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="Dependence\tinygltf\tinygltf.vcxproj">
