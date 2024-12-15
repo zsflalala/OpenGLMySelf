@@ -24,7 +24,7 @@
     <ClCompile Include="src\DragonGLTFModel.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="TextureSequencePlayer.cpp">
+    <ClCompile Include="SequencePlayer.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
@@ -43,7 +43,7 @@
     <ClInclude Include="src\DragonGLTFModel.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="TextureSequencePlayer.h">
+    <ClInclude Include="SequencePlayer.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
