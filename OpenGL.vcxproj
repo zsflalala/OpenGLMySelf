@@ -88,6 +88,7 @@
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg">
     <VcpkgEnabled>false</VcpkgEnabled>
+    <VcpkgEnableManifest>false</VcpkgEnableManifest>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -129,7 +130,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)src;$(SolutionDir)Textures;$(SolutionDir)Dependence\glad-core-4.6\include;$(SolutionDir)Dependence\tinygltf;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)src;$(SolutionDir)Textures;$(SolutionDir)Dependence\glad-core-4.6\include;$(SolutionDir)Dependence\tinygltf;$(SolutionDir)Dependence\imgui\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
@@ -159,6 +160,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Dependence\imgui\src\imgui.cpp" />
+    <ClCompile Include="Dependence\imgui\src\imgui_demo.cpp" />
+    <ClCompile Include="Dependence\imgui\src\imgui_draw.cpp" />
+    <ClCompile Include="Dependence\imgui\src\imgui_impl_glfw.cpp" />
+    <ClCompile Include="Dependence\imgui\src\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="Dependence\imgui\src\imgui_stdlib.cpp" />
+    <ClCompile Include="Dependence\imgui\src\imgui_tables.cpp" />
+    <ClCompile Include="Dependence\imgui\src\imgui_widgets.cpp" />
     <ClCompile Include="SequencePlayer.cpp" />
     <ClCompile Include="src\DragonGLTFModel.cpp" />
     <ClCompile Include="glad.c" />
@@ -170,6 +179,16 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Dependence\imgui\include\imconfig.h" />
+    <ClInclude Include="Dependence\imgui\include\imgui.h" />
+    <ClInclude Include="Dependence\imgui\include\imgui_impl_glfw.h" />
+    <ClInclude Include="Dependence\imgui\include\imgui_impl_opengl3.h" />
+    <ClInclude Include="Dependence\imgui\include\imgui_impl_opengl3_loader.h" />
+    <ClInclude Include="Dependence\imgui\include\imgui_internal.h" />
+    <ClInclude Include="Dependence\imgui\include\imgui_stdlib.h" />
+    <ClInclude Include="Dependence\imgui\include\imstb_rectpack.h" />
+    <ClInclude Include="Dependence\imgui\include\imstb_textedit.h" />
+    <ClInclude Include="Dependence\imgui\include\imstb_truetype.h" />
     <ClInclude Include="SequencePlayer.h" />
     <ClInclude Include="src\DragonGLTFModel.h" />
     <ClInclude Include="src\camera.h" />

@@ -1,0 +1,6 @@
+Package: glad
+Feature: gl-api-45
+Architecture: x64-windows
+Multi-Arch: same
+Description: Imports extensions from OpenGL API specification version 4.5.
+Status: purge ok not-installed

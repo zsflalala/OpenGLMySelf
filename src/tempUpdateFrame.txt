@@ -1,0 +1,255 @@
+#include <glad/glad.h>    // OpenGL loading
+#include <GLFW/glfw3.h>  // For creating OpenGL windows
+#include <stb_image.h>    // Image loading
+#include <iostream>
+#include <string>
+#include <atomic>
+#include <thread>
+#include <mutex>
+
+// Constants
+#define FRAME_COUNT 128  // Total number of frames
+GLuint textureIDs[FRAME_COUNT];  // Texture IDs for each frame
+std::atomic<int> currentFrame(1);  // Current frame index
+std::atomic<bool> frameLoaded[FRAME_COUNT];  // Track whether each frame is loaded
+std::mutex textureMutex;  // Mutex for thread safety
+GLFWwindow* window;      // Window pointer
+GLuint shaderProgram;   // Shader program
+unsigned int VBO, VAO, EBO;
+
+const char* vertexShaderSource = R"(
+    #version 330 core
+    layout (location = 0) in vec2 aPos;
+    layout (location = 1) in vec2 aTexCoord;
+
+    out vec2 TexCoord;
+
+    void main() 
+    {
+        gl_Position = vec4(aPos, 0.0, 1.0);
+        TexCoord = aTexCoord;
+    }
+)";
+
+const char* fragmentShaderSource = R"(
+    #version 330 core
+    out vec4 FragColor;
+
+    in vec2 TexCoord;
+    uniform sampler2D snowTexture;
+
+    void main()
+    {
+        vec4 SnowColor = texture(snowTexture, TexCoord);
+        FragColor = SnowColor;
+    }
+)";
+
+// Vertex data for a quad
+float quadVertices[] = {
+    // positions              // texCoords
+    -1.0f,  1.0f, 0.0f, 0.0f, // bottom left
+     1.0f,  1.0f, 1.0f, 0.0f, // bottom right
+     1.0f, -1.0f, 1.0f, 1.0f, // top right
+	-1.0f, -1.0f, 0.0f, 1.0f  // top left
+};
+
+// Indices for the quad (2 triangles)
+unsigned int indices[] = {
+    0, 1, 2,
+    0, 2, 3
+};
+
+GLuint compileShader(GLenum shaderType, const char* shaderSource)
+{
+    GLuint shader = glCreateShader(shaderType);
+    glShaderSource(shader, 1, &shaderSource, nullptr);
+    glCompileShader(shader);
+
+    GLint success;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+    if (!success) 
+    {
+        GLint logLength;
+        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
+        std::string log(logLength, '\0');
+        glGetShaderInfoLog(shader, logLength, nullptr, log.data());
+        std::cerr << "Shader compile error: " << log << std::endl;
+    }
+    return shader;
+}
+
+GLuint createShaderProgram()
+{
+    GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSource);
+    GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSource);
+
+    GLuint program = glCreateProgram();
+    glAttachShader(program, vertexShader);
+    glAttachShader(program, fragmentShader);
+    glLinkProgram(program);
+
+    GLint success;
+    glGetProgramiv(program, GL_LINK_STATUS, &success);
+    if (!success) 
+    {
+        GLint logLength;
+        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLength);
+        std::string log(logLength, '\0');
+        glGetProgramInfoLog(program, logLength, nullptr, log.data());
+        std::cerr << "Program linking error: " << log << std::endl;
+    }
+
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+    return program;
+}
+
+void initOpenGL()
+{
+    if (!glfwInit()) 
+    {
+        std::cerr << "Failed to initialize GLFW!" << std::endl;
+        exit(-1);
+    }
+
+    window = glfwCreateWindow(800, 600, "OpenGL Texture Playback", nullptr, nullptr);
+    if (!window) 
+    {
+        std::cerr << "Failed to create GLFW window!" << std::endl;
+        glfwTerminate();
+        exit(-1);
+    }
+
+    glfwMakeContextCurrent(window);
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        std::cerr << "Failed to initialize GLAD!" << std::endl;
+        exit(-1);
+    }
+
+    glViewport(0, 0, 800, 600);
+}
+
+void initTextures()
+{
+    glGenTextures(FRAME_COUNT, textureIDs);  // Generate texture IDs for all frames
+    for (int i = 0; i < FRAME_COUNT; ++i) 
+    {
+        glBindTexture(GL_TEXTURE_2D, textureIDs[i]);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
+    
+}
+
+void loadTextureAsync(int frameIndex, const std::string& filePath)
+{
+    std::thread([frameIndex, filePath]() 
+        {
+        int width, height, channels;
+        unsigned char* imageData = stbi_load(filePath.c_str(), &width, &height, &channels, 0);
+        if (imageData) 
+        {
+            std::lock_guard<std::mutex> lock(textureMutex);
+            glBindTexture(GL_TEXTURE_2D, textureIDs[frameIndex]);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, imageData);
+            glGenerateMipmap(GL_TEXTURE_2D);
+            stbi_image_free(imageData);  // Free image data
+
+            frameLoaded[frameIndex] = true;  // Mark this frame as loaded
+            std::cout << filePath << " has loaded." << std::endl;
+        }
+        else 
+        {
+            std::cerr << "Failed to load texture: " << filePath << std::endl;
+        }
+        }).detach();  // Detach the thread to run in background
+}
+
+void loadAllTextures()
+{
+    for (int i = 1; i < FRAME_COUNT; ++i) 
+    {
+        std::string texturePath = "Textures/SnowScene/frame_" + std::string(3 - std::to_string(i).length(), '0') + std::to_string(i) + ".png";
+        loadTextureAsync(i, texturePath);  // Load texture asynchronously
+    }
+}
+
+void createQuad()
+{
+    
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+
+    glBindVertexArray(VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    glBindVertexArray(VAO);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+}
+
+void renderLoop()
+{
+    while (!glfwWindowShouldClose(window)) 
+    {
+        glClearColor(0.1, 0.2, 0.1, 1.0);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        int frame = currentFrame.load();  // Get the current frame index
+        if (!frameLoaded[frame].load()) 
+        {
+            // If frame is not loaded yet, show the previous frame or a default frame
+            frame = (frame > 0) ? frame - 1 : FRAME_COUNT - 1;
+            std::cout << frame << " is not loaded." << std::endl;
+        }
+        else
+        {
+            std::cout << frame << " is loaded." << std::endl;
+        }
+
+        glUseProgram(shaderProgram);  // Use the shader program
+        glBindTexture(GL_TEXTURE_2D, textureIDs[frame]);
+        glBindVertexArray(VAO);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        // Update the frame index, loop back to 0 after reaching FRAME_COUNT
+        currentFrame.store((frame + 1) % FRAME_COUNT);
+
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+}
+
+int main()
+{
+    
+    initOpenGL();
+    shaderProgram = createShaderProgram();
+    createQuad();  // Render the quad with the current texture
+    initTextures();
+    loadAllTextures();
+    renderLoop();
+    glfwDestroyWindow(window);
+    glfwTerminate();
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+    glDeleteBuffers(1, &EBO);
+    return 0;
+}

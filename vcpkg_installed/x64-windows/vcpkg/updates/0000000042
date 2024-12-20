@@ -1,0 +1,6 @@
+Package: glad
+Feature: gl-api-11
+Architecture: x64-windows
+Multi-Arch: same
+Description: Imports extensions from OpenGL API specification version 1.1.
+Status: purge ok not-installed

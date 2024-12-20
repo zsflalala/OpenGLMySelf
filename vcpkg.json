@@ -1,0 +1,15 @@
+{
+  "dependencies": [
+    "fmt",
+    {
+      "name": "imgui",
+      "features": [
+        "glfw-binding",
+        "opengl3-binding"
+      ]
+    },
+    "spdlog",
+    "stb",
+    "nlohmann-json"
+  ]
+}

@@ -4,6 +4,9 @@
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
 #include <glm/glm.hpp>
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
 
 #define M_PI 3.14159265358979323846
 
@@ -46,20 +49,49 @@ const char* pSnowVertexShaderSource = R"(
 )";
 
 const char* pSnowFragmentShaderSource = R"(
-    #version 330 core
-    out vec4 FragColor;
+	#version 430 core
+	out vec4 FragColor;
 
-    in vec2 TexCoord;
-    uniform vec2 uvOffset;
-    uniform vec2 uvScale; 
-    uniform sampler2D snowTexture;
+	in vec2 TexCoord;
+	uniform vec2 texUVOffset;
+	uniform vec2 texUVScale; 
+	uniform sampler2D sequenceTexture;
+	uniform sampler2D sequenceTextureA;
+	uniform sampler2D sequenceTextureB;
 
-    void main()
-    {
-        vec2 TexCoords = (TexCoord * uvScale) + uvOffset;
-        vec4 SnowColor = texture(snowTexture, TexCoords);
-        FragColor = SnowColor;
-    }
+	uniform vec2 preTexUVOffset;
+	uniform vec2 preTexUVScale;
+	uniform float interpolationParam;
+
+	void main()
+	{
+	    vec3 LightDir = normalize(vec3(-2.0f, -3.0f, -5.0f));
+	    vec3 LightColor = vec3(1.0f, 1.0f, 1.0f);
+
+	    float Intensity = 1.0f;
+
+	    vec2 TexCoords = (TexCoord * texUVScale) + texUVOffset;
+	    vec4 TexColor = texture(sequenceTexture, TexCoords);
+	    vec4 TexColorA = texture(sequenceTextureA, TexCoords);
+	    vec4 TexColorB = texture(sequenceTextureB, TexCoords);
+
+	    vec2 PreTexCoords = (TexCoord * preTexUVScale) + preTexUVOffset;
+	    vec4 PreTexColor = texture(sequenceTexture, PreTexCoords);
+	    vec4 PreTexColorA = texture(sequenceTextureA, PreTexCoords);
+	    vec4 PreTexColorB = texture(sequenceTextureB, PreTexCoords);
+
+	    LightDir = abs(LightDir);
+
+	    float Gray = TexColorA.r * LightDir.x + TexColorA.g * LightDir.y + TexColorB.b * LightDir.z;
+	    float PreGray = PreTexColorA.r * LightDir.x + PreTexColorA.g * LightDir.y + PreTexColorB.b * LightDir.z;
+	    vec4 CurrentColor = vec4(Gray, Gray, Gray, 1.0f);
+	    vec4 PreColor = vec4(PreGray, PreGray, PreGray, 1.0f);
+
+	    TexColor = TexColor * CurrentColor * Intensity;
+	    PreTexColor = PreTexColor * PreColor * Intensity;
+
+	    FragColor = mix(PreTexColor, TexColor, interpolationParam);
+	}
 )";
 
 const char* pQuadVertexShaderSource = R"(
@@ -208,7 +240,7 @@ int main()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    const int WindowWidth = 1400, WindowHeight = 630;
+    const int WindowWidth = 1920, WindowHeight = 1080;
     GLFWwindow* pWindow = glfwCreateWindow(WindowWidth, WindowHeight, "Sequence Frames", NULL, NULL);
     if (!pWindow)
     {
@@ -225,36 +257,13 @@ int main()
         return -1;
     }
 
-    double CurrentTime = glfwGetTime();
-    GLuint NearSnowTextureHandle = loadTexture("./Textures/nearSnow.png");
-    double LoadNearTextureTime = glfwGetTime();
-    std::cout << LoadNearTextureTime - CurrentTime << std::endl;
-    GLuint FarSnowTextureHandle = loadTexture("./Textures/farSnow.png");
-    double LoadFarTextureTime = glfwGetTime();
-    std::cout << LoadFarTextureTime - LoadNearTextureTime << std::endl;
-    //GLuint CartoonTextureHandle = loadTexture("./Textures/Deliverman.png");
-    GLuint SceneTextureHandle   = loadTexture("./Textures/snowScene.png");
-    GLuint BackgroundTextureHandle = loadTexture("./Textures/background3.jpg");
+    GLuint SceneTextureHandle = loadTexture("./Textures/cloud2_12x15.png");
+    GLuint SceneTextureHandleA = loadTexture("./Textures/cloud2_12x15_A.png");
+    GLuint SceneTextureHandleB = loadTexture("./Textures/cloud2_12x15_B.png");
 
-    GLuint NearSnowVertexShader = compileShader(GL_VERTEX_SHADER, pSnowVertexShaderSource);
-    GLuint NearSnowFragmentShader = compileShader(GL_FRAGMENT_SHADER, pSnowFragmentShaderSource);
-    GLuint NearSnowShaderProgram = linkProgram(NearSnowVertexShader, NearSnowFragmentShader);
-
-    GLuint SnowSceneVertexShader = compileShader(GL_VERTEX_SHADER, pSnowVertexShaderSource);
-    GLuint SnowSceneFragmentShader = compileShader(GL_FRAGMENT_SHADER, pSnowFragmentShaderSource);
-    GLuint SnowSceneShaderProgram = linkProgram(SnowSceneVertexShader, SnowSceneFragmentShader);
-
-    GLuint CartoonVertexShader = compileShader(GL_VERTEX_SHADER, pQuadVertexShaderSource);
-    GLuint CartoonFragmentShader = compileShader(GL_FRAGMENT_SHADER, pQuadFragmentShaderSource);
-    GLuint CartoonShaderProgram = linkProgram(CartoonVertexShader, CartoonFragmentShader);
-
-    GLuint BackgroundVertexShader = compileShader(GL_VERTEX_SHADER, pQuadVertexShaderSource);
-    GLuint BackgroundFragmentShader = compileShader(GL_FRAGMENT_SHADER, pQuadFragmentShaderSource);
-    GLuint BackgroundShaderProgram = linkProgram(BackgroundVertexShader, BackgroundFragmentShader);
-
-    GLuint FarSnowVertexShader = compileShader(GL_VERTEX_SHADER, pSnowVertexShaderSource);
-    GLuint FarSnowFragmentShader = compileShader(GL_FRAGMENT_SHADER, pSnowFragmentShaderSource);
-    GLuint FarSnowShaderProgram = linkProgram(FarSnowVertexShader, FarSnowFragmentShader);
+    GLuint SceneVertexShader = compileShader(GL_VERTEX_SHADER, pSnowVertexShaderSource);
+    GLuint SceneFragmentShader = compileShader(GL_FRAGMENT_SHADER, pSnowFragmentShaderSource);
+    GLuint SceneShaderProgram = linkProgram(SceneVertexShader, SceneFragmentShader);
 
     const float pVertices[] = {
         // positions   // texCoords
@@ -283,135 +292,115 @@ int main()
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-    double NearLastTime = glfwGetTime();
-    double FarLastTime  = glfwGetTime();
-    int NearCurrentFrame = 0;
-    int FarCurrentFrame  = 0;
-    const int NearRows   = 8, NearCols = 16;
-    const int FarRows    = 8, FarCols  = 16;
     const float Angle = 0.0f * M_PI / 180.0f; // Clockwise
     const glm::vec2 ScreenScale = glm::vec2(1.0f, 1.0f);
     const glm::vec2 ScreenOffset = glm::vec2(0.0f, 0.0f);
-    int NearSnowValidFrames = NearRows * NearCols;
-    int FarSnowValidFrames  = FarRows  * FarCols;
 
-    double SnowSceneLastTime = glfwGetTime();
-    const int SnowSceneRows = 8, SnowSceneCols = 16;
-    int SnowSceneCurrentFrame = 0;
-    int SnowSceneValidFrames = SnowSceneRows * SnowSceneCols;
-    bool IsFinished = false;
+    double SceneLastTime = glfwGetTime();
+    const int SnowSceneRows = 12, SnowSceneCols = 15;
+    int SceneCurrentFrame = 0;
+    int SceneValidFrames = SnowSceneRows * SnowSceneCols;
+
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& Io = ImGui::GetIO();
+    Io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    Io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplGlfw_InitForOpenGL(pWindow, true);          // Second param install_callback=true will install GLFW callbacks and chain to existing ones.
+    ImGui_ImplOpenGL3_Init("#version 430");
+
+    bool ShowDemoWindow = false;
+    bool ShowAnotherWindow = false;
+    ImVec4 ClearColor = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     while (!glfwWindowShouldClose(pWindow))
     {
         double CurrentTime = glfwGetTime();
 
-        double NearFrameTime = 1.0 / g_NearSnowSpeed;
-        if (CurrentTime - NearLastTime >= NearFrameTime)
+        double SceneFrameTime = 1.0 / g_SnowSceneSpeed;
+        if (CurrentTime - SceneLastTime >= SceneFrameTime)
         {
-            NearLastTime = CurrentTime;
-            NearCurrentFrame = (NearCurrentFrame + 1) % NearSnowValidFrames;
+            SceneLastTime = CurrentTime;
+            SceneCurrentFrame = (SceneCurrentFrame + 1) % SceneValidFrames;
         }
 
-        double FarFrameTime = 1.0 / g_FarSnowSpeed;
-        if (CurrentTime - FarLastTime >= FarFrameTime)
-        {
-            FarLastTime = CurrentTime;
-            FarCurrentFrame = (FarCurrentFrame + 1) % FarSnowValidFrames;
-        }
-
-        double SnowSceneFrameTime = 1.0 / g_SnowSceneSpeed;
-        if (CurrentTime - SnowSceneLastTime >= SnowSceneFrameTime)
-        {
-            SnowSceneLastTime = CurrentTime;
-            SnowSceneCurrentFrame = (SnowSceneCurrentFrame + 1) % SnowSceneValidFrames;
-            if (SnowSceneCurrentFrame == 0) IsFinished = true;
-            else IsFinished = false;
-        }
-
-        glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+        glClearColor(ClearColor.x, ClearColor.y, ClearColor.z, ClearColor.w);
         glClear(GL_COLOR_BUFFER_BIT);
         glEnable(GL_BLEND);
 
-        //if (g_EnableBackground)
-        //{
-        //    glUseProgram(BackgroundShaderProgram);
-        //    glUniform1i(glGetUniformLocation(BackgroundShaderProgram, "quadTexture"), 0);
-        //    glBindVertexArray(QuadVAO);
-        //    glBindTexture(GL_TEXTURE_2D, BackgroundTextureHandle);
-        //    glActiveTexture(GL_TEXTURE0);
-        //    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        //}
+        // Start the Dear ImGui frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
 
-        /*if (g_EnableFarSnow)
+        static float InterpolationParam = 0.0f;
+        static int counter = 0;
+
+        ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+        ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
+        ImGui::Checkbox("Demo Window", &ShowDemoWindow);      // Edit bools storing our window open/close state
+        ImGui::Checkbox("Another Window", &ShowAnotherWindow);
+        if (ShowDemoWindow) ImGui::ShowDemoWindow(&ShowDemoWindow);
+        ImGui::SliderFloat("float", &InterpolationParam, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+        ImGui::ColorEdit3("clear color", (float*)&ClearColor); // Edit 3 floats representing a color
+        if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+            counter++;
+        ImGui::SameLine();
+        ImGui::Text("counter = %d", counter);
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / Io.Framerate, Io.Framerate);
+        ImGui::End();
+        if (ShowAnotherWindow)
         {
-            int  FarRow = FarCurrentFrame / FarCols;
-            int  FarCol = FarCurrentFrame % FarCols;
-            float FarU0 = FarCol / (float)FarCols;
-            float FarV0 = FarRow / (float)FarRows;
-            float FarU1 = (FarCol + 1) / (float)FarCols;
-            float FarV1 = (FarRow + 1) / (float)FarRows;
-
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            glUseProgram(FarSnowShaderProgram);
-            glUniform1f(glGetUniformLocation(FarSnowShaderProgram, "rotationAngle"), Angle);
-            glUniform2fv(glGetUniformLocation(FarSnowShaderProgram, "screenScale"), 1, &ScreenScale[0]);
-            glUniform2fv(glGetUniformLocation(FarSnowShaderProgram, "screenOffset"), 1, &ScreenOffset[0]);
-            glUniform2f(glGetUniformLocation(FarSnowShaderProgram, "uvOffset"), FarU0, FarV0);
-            glUniform2f(glGetUniformLocation(FarSnowShaderProgram, "uvScale"), FarU1 - FarU0, FarV1 - FarV0);
-            glUniform1i(glGetUniformLocation(FarSnowShaderProgram, "snowTexture"), 0);
-            glBindTexture(GL_TEXTURE_2D, FarSnowTextureHandle);
-            glActiveTexture(GL_TEXTURE0);
-            glBindVertexArray(QuadVAO);
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        }*/
-        
-        if (g_EnableCartoon)
-        {
-            if (IsFinished) SnowSceneCurrentFrame = SnowSceneValidFrames - 1;
-            int SnowSceneRow = SnowSceneCurrentFrame / SnowSceneCols;
-            int SnowSceneCol = SnowSceneCurrentFrame % SnowSceneCols;
-            float SnowSceneU0 = SnowSceneCol / (float)SnowSceneCols;
-            float SnowSceneV0 = 1.0 - (SnowSceneRow + 1) / (float)SnowSceneRows;
-            float SnowSceneU1 = (SnowSceneCol + 1) / (float)SnowSceneCols;
-            float SnowSceneV1 = 1.0 - SnowSceneRow / (float)SnowSceneRows;
-
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            glUseProgram(SnowSceneShaderProgram);
-            glUniform1f(glGetUniformLocation(SnowSceneShaderProgram, "rotationAngle"), Angle);
-            glUniform2fv(glGetUniformLocation(SnowSceneShaderProgram, "screenScale"), 1, &ScreenScale[0]);
-            glUniform2fv(glGetUniformLocation(SnowSceneShaderProgram, "screenOffset"), 1, &ScreenOffset[0]);
-            glUniform2f(glGetUniformLocation(SnowSceneShaderProgram, "uvOffset"), SnowSceneU0, SnowSceneV0);
-            glUniform2f(glGetUniformLocation(SnowSceneShaderProgram, "uvScale"), SnowSceneU1 - SnowSceneU0, SnowSceneV1 - SnowSceneV0);
-            glUniform1i(glGetUniformLocation(SnowSceneShaderProgram, "snowTexture"), 0);
-            glBindTexture(GL_TEXTURE_2D, SceneTextureHandle);
-            glActiveTexture(GL_TEXTURE0);
-            glBindVertexArray(QuadVAO);
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+            ImGui::Begin("Another Window");
+            ImGui::Text("This is another text.");
+            if (ImGui::Button("Close Me")) ShowAnotherWindow = false;
+            ImGui::End();
         }
 
-        if (g_EnableNearSnow)
-        {
-            int NearRow = NearCurrentFrame / NearCols;
-            int NearCol = NearCurrentFrame % NearCols;
-            float NearU0 = NearCol / (float)NearCols;
-            float NearV0 = NearRow / (float)NearRows;
-            float NearU1 = (NearCol + 1) / (float)NearCols;
-            float NearV1 = (NearRow + 1) / (float)NearRows;
+        int SceneRow = SceneCurrentFrame / SnowSceneCols;
+        int SceneCol = SceneCurrentFrame % SnowSceneCols;
+        float SceneU0 = SceneCol / (float)SnowSceneCols;
+        float SceneV0 = 1.0 - (SceneRow + 1) / (float)SnowSceneRows;
+        float SceneU1 = (SceneCol + 1) / (float)SnowSceneCols;
+        float SceneV1 = 1.0 - SceneRow / (float)SnowSceneRows;
 
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            glUseProgram(NearSnowShaderProgram);
-            glUniform1f(glGetUniformLocation(NearSnowShaderProgram, "rotationAngle"), Angle);
-            glUniform2fv(glGetUniformLocation(NearSnowShaderProgram, "screenScale"), 1, &ScreenScale[0]);
-            glUniform2fv(glGetUniformLocation(NearSnowShaderProgram, "screenOffset"), 1, &ScreenOffset[0]);
-            glUniform2f(glGetUniformLocation(NearSnowShaderProgram, "uvOffset"), NearU0, NearV0);
-            glUniform2f(glGetUniformLocation(NearSnowShaderProgram, "uvScale"), NearU1 - NearU0, NearV1 - NearV0);
-            glUniform1i(glGetUniformLocation(NearSnowShaderProgram, "snowTexture"), 0);
-            glBindTexture(GL_TEXTURE_2D, NearSnowTextureHandle);
-            glActiveTexture(GL_TEXTURE0);
-            glBindVertexArray(QuadVAO);
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-        }
+        int   PreFrame = std::max(SceneCurrentFrame - 1, 0);
+        int   PreFrameRow = PreFrame / SnowSceneCols;
+        int   PreFrameCol = PreFrame % SnowSceneCols;
+        float PreFrameU0 = PreFrameCol / static_cast<float>(SnowSceneCols);
+        float PreFrameV0 = 1.0 - (PreFrameRow + 1) / static_cast<float>(SnowSceneRows);
+        float PreFrameU1 = (PreFrameCol + 1) / static_cast<float>(SnowSceneCols);
+        float PreFrameV1 = 1.0 - PreFrameRow / static_cast<float>(SnowSceneRows);
+
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glUseProgram(SceneShaderProgram);
+        glUniform1f(glGetUniformLocation(SceneShaderProgram, "rotationAngle"), Angle);
+        glUniform2fv(glGetUniformLocation(SceneShaderProgram, "screenScale"), 1, &ScreenScale[0]);
+        glUniform2fv(glGetUniformLocation(SceneShaderProgram, "screenOffset"), 1, &ScreenOffset[0]);
+        glUniform2f(glGetUniformLocation(SceneShaderProgram, "texUVOffset"), SceneU0, SceneV0);
+        glUniform2f(glGetUniformLocation(SceneShaderProgram, "texUVScale"), SceneU1 - SceneU0, SceneV1 - SceneV0);
+        glUniform2f(glGetUniformLocation(SceneShaderProgram, "preTexUVOffset"), PreFrameU0, PreFrameV0);
+        glUniform2f(glGetUniformLocation(SceneShaderProgram, "preTexUVScale"), PreFrameU1 - PreFrameU0, PreFrameV1 - PreFrameV0);
+        glUniform1f(glGetUniformLocation(SceneShaderProgram, "interpolationParam"), InterpolationParam);
+
+        glUniform1i(glGetUniformLocation(SceneShaderProgram, "sequenceTexture"), 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, SceneTextureHandle);
+        glUniform1i(glGetUniformLocation(SceneShaderProgram, "sequenceTextureA"), 1);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, SceneTextureHandleA);
+        glUniform1i(glGetUniformLocation(SceneShaderProgram, "sequenceTextureB"), 2);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, SceneTextureHandleB);
+        glBindVertexArray(QuadVAO);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        // Rendering
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(pWindow);
         glfwPollEvents();
@@ -420,10 +409,7 @@ int main()
     glDeleteVertexArrays(1, &QuadVAO);
     glDeleteBuffers(1, &QuadVBO);
     glDeleteBuffers(1, &QuadEBO);
-    glDeleteProgram(NearSnowShaderProgram);
-    glDeleteProgram(FarSnowShaderProgram);
-    glDeleteProgram(CartoonShaderProgram);
-    glDeleteProgram(BackgroundShaderProgram);
+    glDeleteProgram(SceneShaderProgram);
     glfwTerminate();
     return 0;
 }

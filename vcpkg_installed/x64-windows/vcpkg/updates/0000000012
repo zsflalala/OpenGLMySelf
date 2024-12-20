@@ -1,0 +1,6 @@
+Package: glad
+Feature: gl-api-32
+Architecture: x64-windows
+Multi-Arch: same
+Description: Imports extensions from OpenGL API specification version 3.2.
+Status: purge ok half-installed
