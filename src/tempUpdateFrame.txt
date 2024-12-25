@@ -1,252 +1,239 @@
-#include <glad/glad.h>    // OpenGL loading
-#include <GLFW/glfw3.h>  // For creating OpenGL windows
-#include <stb_image.h>    // Image loading
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
 #include <iostream>
 #include <string>
 #include <atomic>
 #include <thread>
 #include <mutex>
+#include <chrono>
+#include <stb_image.h>
 
-// Constants
-#define FRAME_COUNT 128  // Total number of frames
-GLuint textureIDs[FRAME_COUNT];  // Texture IDs for each frame
-std::atomic<int> currentFrame(1);  // Current frame index
-std::atomic<bool> frameLoaded[FRAME_COUNT];  // Track whether each frame is loaded
-std::mutex textureMutex;  // Mutex for thread safety
-GLFWwindow* window;      // Window pointer
-GLuint shaderProgram;   // Shader program
-unsigned int VBO, VAO, EBO;
+#define FRAME_COUNT 128
 
-const char* vertexShaderSource = R"(
-    #version 330 core
-    layout (location = 0) in vec2 aPos;
-    layout (location = 1) in vec2 aTexCoord;
-
-    out vec2 TexCoord;
-
-    void main() 
-    {
-        gl_Position = vec4(aPos, 0.0, 1.0);
-        TexCoord = aTexCoord;
-    }
-)";
-
-const char* fragmentShaderSource = R"(
-    #version 330 core
-    out vec4 FragColor;
-
-    in vec2 TexCoord;
-    uniform sampler2D snowTexture;
-
-    void main()
-    {
-        vec4 SnowColor = texture(snowTexture, TexCoord);
-        FragColor = SnowColor;
-    }
-)";
-
-// Vertex data for a quad
-float quadVertices[] = {
-    // positions              // texCoords
-    -1.0f,  1.0f, 0.0f, 0.0f, // bottom left
-     1.0f,  1.0f, 1.0f, 0.0f, // bottom right
-     1.0f, -1.0f, 1.0f, 1.0f, // top right
-	-1.0f, -1.0f, 0.0f, 1.0f  // top left
-};
-
-// Indices for the quad (2 triangles)
-unsigned int indices[] = {
-    0, 1, 2,
-    0, 2, 3
-};
-
-GLuint compileShader(GLenum shaderType, const char* shaderSource)
+GLuint compileShader(GLenum vShaderType, const char* vShaderSource)
 {
-    GLuint shader = glCreateShader(shaderType);
-    glShaderSource(shader, 1, &shaderSource, nullptr);
-    glCompileShader(shader);
+    GLuint Shader = glCreateShader(vShaderType);
+    glShaderSource(Shader, 1, &vShaderSource, nullptr);
+    glCompileShader(Shader);
 
-    GLint success;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-    if (!success) 
+    GLint Success;
+    glGetShaderiv(Shader, GL_COMPILE_STATUS, &Success);
+    if (!Success)
     {
-        GLint logLength;
-        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
-        std::string log(logLength, '\0');
-        glGetShaderInfoLog(shader, logLength, nullptr, log.data());
-        std::cerr << "Shader compile error: " << log << std::endl;
+        GLint LogLength;
+        glGetShaderiv(Shader, GL_INFO_LOG_LENGTH, &LogLength);
+        std::string Log(LogLength, '\0');
+        glGetShaderInfoLog(Shader, LogLength, nullptr, Log.data());
+        std::cerr << "Shader compile error: " << Log << std::endl;
     }
-    return shader;
+    return Shader;
 }
 
 GLuint createShaderProgram()
 {
-    GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSource);
-    GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSource);
+    const char* pVertexShaderSource = R"(
+	    #version 330 core
+	    layout (location = 0) in vec2 aPos;
+	    layout (location = 1) in vec2 aTexCoord;
 
-    GLuint program = glCreateProgram();
-    glAttachShader(program, vertexShader);
-    glAttachShader(program, fragmentShader);
-    glLinkProgram(program);
+	    out vec2 TexCoord;
 
-    GLint success;
-    glGetProgramiv(program, GL_LINK_STATUS, &success);
-    if (!success) 
+	    void main() 
+	    {
+	        gl_Position = vec4(aPos, 0.0, 1.0);
+	        TexCoord = aTexCoord;
+	    }
+	)";
+
+    const char* pFragmentShaderSource = R"(
+	    #version 330 core
+	    out vec4 FragColor;
+
+	    in vec2 TexCoord;
+	    uniform sampler2D snowTexture;
+
+	    void main()
+	    {
+	        vec4 SnowColor = texture(snowTexture, TexCoord);
+	        FragColor = SnowColor;
+	    }
+	)";
+
+    GLuint VertexShader = compileShader(GL_VERTEX_SHADER, pVertexShaderSource);
+    GLuint FragmentShader = compileShader(GL_FRAGMENT_SHADER, pFragmentShaderSource);
+
+    GLuint Program = glCreateProgram();
+    glAttachShader(Program, VertexShader);
+    glAttachShader(Program, FragmentShader);
+    glLinkProgram(Program);
+
+    GLint Success;
+    glGetProgramiv(Program, GL_LINK_STATUS, &Success);
+    if (!Success)
     {
-        GLint logLength;
-        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLength);
-        std::string log(logLength, '\0');
-        glGetProgramInfoLog(program, logLength, nullptr, log.data());
-        std::cerr << "Program linking error: " << log << std::endl;
+        GLint LogLength;
+        glGetProgramiv(Program, GL_INFO_LOG_LENGTH, &LogLength);
+        std::string Log(LogLength, '\0');
+        glGetProgramInfoLog(Program, LogLength, nullptr, Log.data());
+        std::cerr << "Program linking error: " << Log << std::endl;
     }
 
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-    return program;
+    glDeleteShader(VertexShader);
+    glDeleteShader(FragmentShader);
+    return Program;
 }
 
-void initOpenGL()
+int main()
 {
-    if (!glfwInit()) 
+    if (!glfwInit())
     {
         std::cerr << "Failed to initialize GLFW!" << std::endl;
         exit(-1);
     }
-
-    window = glfwCreateWindow(800, 600, "OpenGL Texture Playback", nullptr, nullptr);
-    if (!window) 
+	GLFWwindow* pWindow = glfwCreateWindow(800, 600, "OpenGL Texture Playback", nullptr, nullptr);
+    if (!pWindow)
     {
         std::cerr << "Failed to create GLFW window!" << std::endl;
         glfwTerminate();
         exit(-1);
     }
-
-    glfwMakeContextCurrent(window);
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+    glfwMakeContextCurrent(pWindow);
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
         std::cerr << "Failed to initialize GLAD!" << std::endl;
         exit(-1);
     }
-
-    glViewport(0, 0, 800, 600);
-}
-
-void initTextures()
-{
-    glGenTextures(FRAME_COUNT, textureIDs);  // Generate texture IDs for all frames
-    for (int i = 0; i < FRAME_COUNT; ++i) 
+    GLFWwindow* pSharedWindow = glfwCreateWindow(1, 1, "Shared Context", nullptr, pWindow);
+    if (!pSharedWindow) 
     {
-        glBindTexture(GL_TEXTURE_2D, textureIDs[i]);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        std::cerr << "Failed to create shared context window!" << std::endl;
+        glfwTerminate();
+        return -1;
     }
-    
-}
 
-void loadTextureAsync(int frameIndex, const std::string& filePath)
-{
-    std::thread([frameIndex, filePath]() 
-        {
-        int width, height, channels;
-        unsigned char* imageData = stbi_load(filePath.c_str(), &width, &height, &channels, 0);
-        if (imageData) 
-        {
-            std::lock_guard<std::mutex> lock(textureMutex);
-            glBindTexture(GL_TEXTURE_2D, textureIDs[frameIndex]);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, imageData);
-            glGenerateMipmap(GL_TEXTURE_2D);
-            stbi_image_free(imageData);  // Free image data
+    GLuint ShaderProgram = createShaderProgram();
 
-            frameLoaded[frameIndex] = true;  // Mark this frame as loaded
-            std::cout << filePath << " has loaded." << std::endl;
-        }
-        else 
-        {
-            std::cerr << "Failed to load texture: " << filePath << std::endl;
-        }
-        }).detach();  // Detach the thread to run in background
-}
+    float pQuadVertices[] = {
+        // positions              // texCoords
+        -1.0f,  1.0f, 0.0f, 0.0f, // bottom left
+         1.0f,  1.0f, 1.0f, 0.0f, // bottom right
+         1.0f, -1.0f, 1.0f, 1.0f, // top right
+        -1.0f, -1.0f, 0.0f, 1.0f  // top left
+    };
 
-void loadAllTextures()
-{
-    for (int i = 1; i < FRAME_COUNT; ++i) 
-    {
-        std::string texturePath = "Textures/SnowScene/frame_" + std::string(3 - std::to_string(i).length(), '0') + std::to_string(i) + ".png";
-        loadTextureAsync(i, texturePath);  // Load texture asynchronously
-    }
-}
+    unsigned int pIndices[] = {
+        0, 1, 2,
+        0, 2, 3
+    };
 
-void createQuad()
-{
-    
+    unsigned int VAO, VBO, EBO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
-
     glBindVertexArray(VAO);
-
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
-
+    glBufferData(GL_ARRAY_BUFFER, sizeof(pQuadVertices), pQuadVertices, GL_STATIC_DRAW);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(pIndices), pIndices, GL_STATIC_DRAW);
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
     glEnableVertexAttribArray(1);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    glBindVertexArray(VAO);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-    glBindVertexArray(0);
-}
-
-void renderLoop()
-{
-    while (!glfwWindowShouldClose(window)) 
+    std::mutex TextureMutex;
+    std::atomic<bool> pFrameLoaded[FRAME_COUNT] = {false};
+    GLuint pTextureIDs[FRAME_COUNT];
+    glGenTextures(FRAME_COUNT, pTextureIDs);
+    for (int i = 0; i < FRAME_COUNT; ++i)
     {
-        glClearColor(0.1, 0.2, 0.1, 1.0);
-        glClear(GL_COLOR_BUFFER_BIT);
+        std::string TexturePath = "Textures/SnowScene/frame_" + std::string(3 - std::to_string(i + 1).length(), '0') + std::to_string(i + 1) + ".png";
+        std::thread([pSharedWindow, &pTextureIDs, &TextureMutex, &pFrameLoaded, i, TexturePath]()
+            {
+                std::lock_guard<std::mutex> Lock(TextureMutex); // If multiple threads call OpenGL functions simultaneously and the OpenGL context is not locked properly, inconsistencies or errors may result.
+                glfwMakeContextCurrent(pSharedWindow);
+                int Width, Height, Channels;
+                unsigned char* pImageData = stbi_load(TexturePath.c_str(), &Width, &Height, &Channels, 0);
+                if (pImageData)
+                {
+                    glBindTexture(GL_TEXTURE_2D, pTextureIDs[i]);
+                    GLenum format = (Channels == 4) ? GL_RGBA : GL_RGB;
+                    glTexImage2D(GL_TEXTURE_2D, 0, format, Width, Height, 0, format, GL_UNSIGNED_BYTE, pImageData);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                    glGenerateMipmap(GL_TEXTURE_2D);
+                    pFrameLoaded[i].store(true);
+                    stbi_image_free(pImageData);
+                }
+                else
+                {
+                    pFrameLoaded[i].store(false);
+                    std::cerr << "Failed to load texture: " << TexturePath << std::endl;
+                }
+                glfwMakeContextCurrent(nullptr);
+            }).detach(); // The join method forces the main thread to wait, while the detach method does not.
+    }
 
-        int frame = currentFrame.load();  // Get the current frame index
-        if (!frameLoaded[frame].load()) 
+    int  Frame = 0;
+    int  LastLoadedFrame = -1;                                   // Save the last loaded frame
+    auto LastFrameTime   = std::chrono::steady_clock::now();     // Record the time of the last frame rendering
+    auto Threshold       = std::chrono::milliseconds(100);   // Set the maximum wait time to 100 milliseconds (0.1 seconds)
+
+    while (!glfwWindowShouldClose(pWindow)) 
+    {
+        glClearColor(0.1f, 0.2f, 0.1f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glEnable(GL_BLEND);
+
+        auto Now = std::chrono::steady_clock::now();
+
+        // If the current frame is not loaded, determine whether the time exceeds the threshold
+        if (pFrameLoaded[Frame].load()) 
         {
-            // If frame is not loaded yet, show the previous frame or a default frame
-            frame = (frame > 0) ? frame - 1 : FRAME_COUNT - 1;
-            std::cout << frame << " is not loaded." << std::endl;
+            LastLoadedFrame = Frame; // Update the last loaded frame
+            Frame = (Frame + 1) % FRAME_COUNT;
+            LastFrameTime = Now;     // Update last render time
         }
         else
         {
-            std::cout << frame << " is loaded." << std::endl;
+            auto TimeElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(Now - LastFrameTime);
+
+            // If the threshold is exceeded, skip the current frame
+            if (TimeElapsed > Threshold) 
+            {
+                std::cout << "Frame " << Frame << " is not loaded for too long, skipping to next frame." << std::endl;
+                Frame = (Frame + 1) % FRAME_COUNT;
+                LastFrameTime = Now;
+            }
+            else if (LastLoadedFrame != -1)
+            {
+                std::cout << "Frame " << Frame << " is not loaded, showing last loaded frame: " << LastLoadedFrame << std::endl;
+            }
+            else 
+            {
+                std::cerr << "No frame is loaded yet." << std::endl;
+                glfwSwapBuffers(pWindow);
+                glfwPollEvents();
+                continue;
+            }
         }
 
-        glUseProgram(shaderProgram);  // Use the shader program
-        glBindTexture(GL_TEXTURE_2D, textureIDs[frame]);
+        // Render the last valid frame (or the current frame)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glUseProgram(ShaderProgram);
+        glUniform1i(glGetUniformLocation(ShaderProgram, "snowTexture"), 0);
+        glBindTexture(GL_TEXTURE_2D, pTextureIDs[LastLoadedFrame]);
+        glActiveTexture(GL_TEXTURE0);
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
-        // Update the frame index, loop back to 0 after reaching FRAME_COUNT
-        currentFrame.store((frame + 1) % FRAME_COUNT);
-
-        glfwSwapBuffers(window);
+        glfwSwapBuffers(pWindow);
         glfwPollEvents();
     }
-}
 
-int main()
-{
-    
-    initOpenGL();
-    shaderProgram = createShaderProgram();
-    createQuad();  // Render the quad with the current texture
-    initTextures();
-    loadAllTextures();
-    renderLoop();
-    glfwDestroyWindow(window);
+    glfwDestroyWindow(pWindow);
     glfwTerminate();
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
