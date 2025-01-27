@@ -83,6 +83,13 @@ GLuint createShaderProgram()
     return Program;
 }
 
+void recordTime(const std::chrono::steady_clock::time_point& vLastTime, const std::string& vProcessName)
+{
+    auto currentTime = std::chrono::steady_clock::now();
+    std::chrono::duration<double> duration = currentTime - vLastTime;
+    std::cout << vProcessName << " cost time: " << duration.count() << " s\n";
+}
+
 int main()
 {
     if (!glfwInit())
@@ -144,7 +151,9 @@ int main()
     std::mutex TextureMutex;
     std::atomic<bool> pFrameLoaded[FRAME_COUNT] = {false};
     GLuint pTextureIDs[FRAME_COUNT];
+    auto start = std::chrono::high_resolution_clock::now();
     glGenTextures(FRAME_COUNT, pTextureIDs);
+    recordTime(start, "glGenTextures");
     for (int i = 0; i < FRAME_COUNT; ++i)
     {
         std::string TexturePath = "Textures/SnowScene/frame_" + std::string(3 - std::to_string(i + 1).length(), '0') + std::to_string(i + 1) + ".png";
@@ -153,17 +162,21 @@ int main()
                 std::lock_guard<std::mutex> Lock(TextureMutex); // If multiple threads call OpenGL functions simultaneously and the OpenGL context is not locked properly, inconsistencies or errors may result.
                 glfwMakeContextCurrent(pSharedWindow);
                 int Width, Height, Channels;
+                auto start = std::chrono::high_resolution_clock::now();
                 unsigned char* pImageData = stbi_load(TexturePath.c_str(), &Width, &Height, &Channels, 0);
-                if (pImageData)
+                recordTime(start, "stbi_load");
+        		if (pImageData)
                 {
                     glBindTexture(GL_TEXTURE_2D, pTextureIDs[i]);
                     GLenum format = (Channels == 4) ? GL_RGBA : GL_RGB;
+                    auto start = std::chrono::high_resolution_clock::now();
                     glTexImage2D(GL_TEXTURE_2D, 0, format, Width, Height, 0, format, GL_UNSIGNED_BYTE, pImageData);
                     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
                     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
                     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
                     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
                     glGenerateMipmap(GL_TEXTURE_2D);
+                    recordTime(start, "glTexImage2D");
                     pFrameLoaded[i].store(true);
                     stbi_image_free(pImageData);
                 }
@@ -203,17 +216,17 @@ int main()
             // If the threshold is exceeded, skip the current frame
             if (TimeElapsed > Threshold) 
             {
-                std::cout << "Frame " << Frame << " is not loaded for too long, skipping to next frame." << std::endl;
+                //std::cout << "Frame " << Frame << " is not loaded for too long, skipping to next frame." << std::endl;
                 Frame = (Frame + 1) % FRAME_COUNT;
                 LastFrameTime = Now;
             }
             else if (LastLoadedFrame != -1)
             {
-                std::cout << "Frame " << Frame << " is not loaded, showing last loaded frame: " << LastLoadedFrame << std::endl;
+                //std::cout << "Frame " << Frame << " is not loaded, showing last loaded frame: " << LastLoadedFrame << std::endl;
             }
             else 
             {
-                std::cerr << "No frame is loaded yet." << std::endl;
+                //std::cerr << "No frame is loaded yet." << std::endl;
                 glfwSwapBuffers(pWindow);
                 glfwPollEvents();
                 continue;

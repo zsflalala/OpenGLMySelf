@@ -6,7 +6,6 @@
 #include <glm/glm.hpp>
 
 #define M_PI 3.14159265358979323846
-#define GL_COMPRESSED_RGBA_ASTC_4x4_KHR  0x93B0
 
 const char* pSnowVertexShaderSource = R"(
     #version 330 core
@@ -202,49 +201,6 @@ void windowSizeCallback(GLFWwindow* vWindow, int vWidth, int vHeight)
     glViewport(0, 0, vWidth, vHeight);
 }
 
-GLuint loadASTCTexture(const char* filepath) {
-    // 打开纹理文件
-    FILE* file;
-    errno_t err = fopen_s(&file, "example.txt", "r");
-    if (err != 0) {
-        // 处理错误
-        std::cerr << "Failed to open file!" << std::endl;
-    }
-    else {
-        // 文件操作代码
-        fclose(file);
-    }
-
-    // 获取文件大小
-    fseek(file, 0, SEEK_END);
-    long fileSize = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    // 读取文件内容
-    unsigned char* textureData = new unsigned char[fileSize];
-    fread(textureData, 1, fileSize, file);
-    fclose(file);
-
-    // 创建 OpenGL 纹理
-    GLuint textureID;
-    glGenTextures(1, &textureID);
-    glBindTexture(GL_TEXTURE_2D, textureID);
-
-    // 设置纹理参数
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    // 加载压缩纹理数据
-    // 假设纹理的宽高为 512x512，格式为 ASTC 4x4
-    int Width = (textureData[9] << 16) | (textureData[8] << 8)    | textureData[7];
-    int Height = (textureData[12] << 16) | (textureData[11] << 8) | textureData[10];
-    glCompressedTexImage2D(GL_TEXTURE_2D, 0, GL_COMPRESSED_RGBA_ASTC_4x4_KHR,
-        512, 512, 0, fileSize, textureData);
-
-    delete[] textureData;
-    return textureID;
-}
-
 int main()
 {
     glfwInit();
@@ -281,14 +237,6 @@ int main()
         0, 1, 2,
         0, 2, 3
     };
-
-    const char* extensions = (const char*)glGetString(GL_EXTENSIONS);
-    if (strstr(extensions, "GL_KHR_texture_compression_astc")) {
-        std::cout << "ASTC format supported!" << std::endl;
-    }
-    else {
-        std::cout << "ASTC format not supported!" << std::endl;
-    }
 
     GLuint QuadVAO, QuadVBO, QuadEBO;
     glGenVertexArrays(1, &QuadVAO);
